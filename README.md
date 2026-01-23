@@ -1,33 +1,39 @@
 # FullScreenLauncher
 
-一個為 macOS 打造的全螢幕應用程式啟動器，提供類似舊版 Launchpad 的全螢幕體驗。
+一個為 macOS 打造的全螢幕應用程式啟動器，提供類似手機的資料夾式分類體驗。
 
 ![macOS](https://img.shields.io/badge/macOS-12.0%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-[![Download](https://img.shields.io/badge/Download-v1.1.0-brightgreen?style=for-the-badge)](https://github.com/aurocoredev/FullScreenLauncher/releases/tag/v1.1.0)
+[![Download](https://img.shields.io/badge/Download-v1.2.0-brightgreen?style=for-the-badge)](https://github.com/aurocoredev/FullScreenLauncher/releases/tag/v1.2.0)
 
 ## 功能特色
 
+- **資料夾式瀏覽** - 點擊分類資料夾進入內頁，手機般的直覺體驗
 - **全螢幕顯示** - 覆蓋整個螢幕，沉浸式體驗
 - **毛玻璃背景** - 精美的視覺效果
 - **自動分類** - 應用程式自動分為：生產力工具、開發工具、影音媒體、社交通訊、系統工具、遊戲、其他
-- **即時搜尋** - 快速找到您要的應用程式
-- **自訂設定** - 可調整圖標大小、間距、每行數量、背景透明度
+- **自訂分類** - 新增、編輯、刪除分類，自由指派 App
+- **即時搜尋** - 首頁搜尋所有 App，資料夾內搜尋該分類
+- **自訂設定** - 可調整圖標大小、間距、背景透明度
+- **啟動行為** - 可選擇啟動 App 後關閉或保持開啟
 - **全域快捷鍵** - 預設 `⌘⌥F1`，可自訂修改
 - **狀態列圖標** - 方便快速存取
 
 ## 截圖
 
-### 主畫面
-![主畫面](screenshots/screenshots-01.png)
+### 首頁 - 資料夾卡片
+![首頁](screenshots/screenshots-01.png)
+
+### 資料夾內頁 - App 列表
+![資料夾內頁](screenshots/screenshots-02.png)
 
 ### 分類管理
-![分類管理](screenshots/screenshots-02.png)
+![分類管理](screenshots/screenshots-03.png)
 
 ### 設定面板
-![設定面板](screenshots/screenshots-03.png)
+![設定面板](screenshots/screenshots-04.png)
 
 ## 系統需求
 
@@ -38,7 +44,7 @@
 
 ### 方法一：下載預編譯版本（推薦）
 
-1. **[點此下載 FullScreenLauncher.app.zip](https://github.com/aurocoredev/FullScreenLauncher/releases/download/v1.1.0/FullScreenLauncher.app.zip)**
+1. **[點此下載 FullScreenLauncher.app.zip](https://github.com/aurocoredev/FullScreenLauncher/releases/download/v1.2.0/FullScreenLauncher.app.zip)**
 2. 解壓縮 zip 檔案
 3. 將 `FullScreenLauncher.app` 拖曳到「應用程式」資料夾
 4. 首次開啟時，右鍵點擊 → 選擇「打開」（因為沒有 Apple 開發者簽名）
@@ -52,18 +58,11 @@
 git clone https://github.com/aurocoredev/FullScreenLauncher.git
 cd FullScreenLauncher
 
-# 編譯
-swiftc -o FullScreenLauncher main.swift -framework Cocoa -framework SwiftUI -framework Carbon
+# 使用 build script 編譯
+./build.sh
 
-# 建立 .app 包
-mkdir -p FullScreenLauncher.app/Contents/MacOS
-mkdir -p FullScreenLauncher.app/Contents/Resources
-mv FullScreenLauncher FullScreenLauncher.app/Contents/MacOS/
-cp Info.plist FullScreenLauncher.app/Contents/
-cp AppIcon.icns FullScreenLauncher.app/Contents/Resources/  # 如果有圖標
-
-# 複製到應用程式資料夾
-cp -r FullScreenLauncher.app ~/Applications/
+# 或手動編譯
+swiftc -o FullScreenLauncher main.swift -framework Cocoa -framework SwiftUI -framework Carbon -O
 ```
 
 ## 使用方式
@@ -71,10 +70,18 @@ cp -r FullScreenLauncher.app ~/Applications/
 | 操作 | 功能 |
 |------|------|
 | `⌘⌥F1` | 全域快捷鍵開啟/關閉（可自訂） |
-| `ESC` | 關閉視窗 |
+| 點擊資料夾 | 進入該分類查看 App |
+| `ESC` | 返回上一層 / 清空搜尋 / 關閉視窗 |
 | 點擊 ⚙️ | 開啟設定面板 |
-| 點擊分類標籤 | 過濾應用程式 |
+| 點擊 📁 | 開啟分類管理 |
 | 直接輸入 | 搜尋應用程式 |
+
+### ESC 鍵行為
+
+- 在資料夾內且有搜尋文字 → 清空搜尋
+- 在資料夾內且無搜尋文字 → 返回首頁
+- 在首頁且有搜尋文字 → 清空搜尋
+- 在首頁且無搜尋文字 → 關閉視窗
 
 ## 設定選項
 
@@ -82,10 +89,28 @@ cp -r FullScreenLauncher.app ~/Applications/
 
 - **圖標大小** - 48px ~ 128px
 - **間距** - 10px ~ 60px
-- **每行數量** - 自動 或 固定 4~12 個
-- **背景透明度** - 10% ~ 90%
-- **顯示分類** - 開啟/關閉分類標題
+- **背景深度** - 10% ~ 90%
+- **顯示分類** - 開啟資料夾模式 / 關閉顯示所有 App
+- **啟動行為** - 啟動後關閉 / 保持開啟
 - **全域快捷鍵** - 自訂您喜歡的快捷鍵組合
+
+## 更新日誌
+
+### v1.2.0
+- 新增資料夾式瀏覽體驗
+- 點擊分類卡片進入內頁查看 App
+- 資料夾內獨立搜尋功能
+- 新增啟動行為設定（關閉/保持開啟）
+- ESC 鍵支援多層級返回
+- 移除每行數量設定，改為自動計算
+
+### v1.1.0
+- 新增自訂分類功能
+- 新增分類管理介面
+- Bug 修復與效能優化
+
+### v1.0.0
+- 首次發布
 
 ## 開機自動啟動
 

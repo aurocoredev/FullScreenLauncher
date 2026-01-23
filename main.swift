@@ -2,6 +2,19 @@ import Cocoa
 import SwiftUI
 import Carbon.HIToolbox
 
+// MARK: - Launch Behavior
+enum LaunchBehavior: String, CaseIterable {
+    case closeAfterLaunch = "closeAfterLaunch"
+    case stayOpen = "stayOpen"
+
+    var displayName: String {
+        switch self {
+        case .closeAfterLaunch: return "啟動後關閉"
+        case .stayOpen: return "保持開啟"
+        }
+    }
+}
+
 // MARK: - Settings Model
 class LauncherSettings: ObservableObject {
     static let shared = LauncherSettings()
@@ -18,14 +31,14 @@ class LauncherSettings: ObservableObject {
     @Published var backgroundOpacity: Double {
         didSet { UserDefaults.standard.set(backgroundOpacity, forKey: "backgroundOpacity") }
     }
-    @Published var columnsCount: Int {
-        didSet { UserDefaults.standard.set(columnsCount, forKey: "columnsCount") }
-    }
     @Published var hotkeyKeyCode: UInt32 {
         didSet { UserDefaults.standard.set(hotkeyKeyCode, forKey: "hotkeyKeyCode") }
     }
     @Published var hotkeyModifiers: UInt32 {
         didSet { UserDefaults.standard.set(hotkeyModifiers, forKey: "hotkeyModifiers") }
+    }
+    @Published var launchBehavior: LaunchBehavior {
+        didSet { UserDefaults.standard.set(launchBehavior.rawValue, forKey: "launchBehavior") }
     }
 
     init() {
@@ -33,9 +46,15 @@ class LauncherSettings: ObservableObject {
         self.gridSpacing = UserDefaults.standard.object(forKey: "gridSpacing") as? CGFloat ?? 25
         self.showCategories = UserDefaults.standard.object(forKey: "showCategories") as? Bool ?? true
         self.backgroundOpacity = UserDefaults.standard.object(forKey: "backgroundOpacity") as? Double ?? 0.6
-        self.columnsCount = UserDefaults.standard.object(forKey: "columnsCount") as? Int ?? 0  // 0 = auto
         self.hotkeyKeyCode = UserDefaults.standard.object(forKey: "hotkeyKeyCode") as? UInt32 ?? 0x7A  // F1
         self.hotkeyModifiers = UserDefaults.standard.object(forKey: "hotkeyModifiers") as? UInt32 ?? UInt32(cmdKey | optionKey)
+
+        if let behaviorString = UserDefaults.standard.string(forKey: "launchBehavior"),
+           let behavior = LaunchBehavior(rawValue: behaviorString) {
+            self.launchBehavior = behavior
+        } else {
+            self.launchBehavior = .closeAfterLaunch
+        }
     }
 
     var hotkeyDescription: String {
@@ -309,13 +328,47 @@ class AppScanner {
     }
 }
 
+// MARK: - Folder Group Model
+struct FolderGroup: Identifiable {
+    let id: UUID
+    let title: String
+    let icon: String
+    let apps: [AppItem]
+
+    var count: Int { apps.count }
+    var previewApps: [AppItem] { Array(apps.prefix(4)) }
+}
+
+// MARK: - Launcher Route
+enum LauncherRoute: Equatable {
+    case home
+    case folderDetail(folderId: UUID)
+
+    static func == (lhs: LauncherRoute, rhs: LauncherRoute) -> Bool {
+        switch (lhs, rhs) {
+        case (.home, .home):
+            return true
+        case (.folderDetail(let lhsId), .folderDetail(let rhsId)):
+            return lhsId == rhsId
+        default:
+            return false
+        }
+    }
+}
+
 // MARK: - ViewModel
 class LauncherViewModel: ObservableObject {
+    static let shared = LauncherViewModel()
+
     @Published var apps: [AppItem] = []
     @Published var searchText: String = ""
     @Published var selectedCategory: CustomCategory? = nil
     @Published var showSettings: Bool = false
     @Published var showCategoryManager: Bool = false
+
+    // Folder browsing state
+    @Published var route: LauncherRoute = .home
+    @Published var folderQuery: String = ""
 
     @ObservedObject var categoryManager = CategoryManager.shared
 
@@ -349,13 +402,60 @@ class LauncherViewModel: ObservableObject {
         }
     }
 
+    // Folder groups derived from apps
+    var folderGroups: [FolderGroup] {
+        var grouped: [UUID: [AppItem]] = [:]
+
+        for app in apps {
+            if let category = app.category {
+                grouped[category.id, default: []].append(app)
+            }
+        }
+
+        return categoryManager.categories.compactMap { category in
+            guard let categoryApps = grouped[category.id], !categoryApps.isEmpty else { return nil }
+            return FolderGroup(id: category.id, title: category.name, icon: category.icon, apps: categoryApps)
+        }
+    }
+
+    // Currently active folder
+    var activeFolder: FolderGroup? {
+        guard case .folderDetail(let folderId) = route else { return nil }
+        return folderGroups.first { $0.id == folderId }
+    }
+
+    // Apps in the active folder, filtered by folderQuery
+    var filteredFolderApps: [AppItem] {
+        guard let folder = activeFolder else { return [] }
+        if folderQuery.isEmpty {
+            return folder.apps
+        }
+        return folder.apps.filter { $0.name.localizedCaseInsensitiveContains(folderQuery) }
+    }
+
     init() {
         apps = AppScanner.scanApplications()
     }
 
+    func navigateToFolder(id: UUID) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            route = .folderDetail(folderId: id)
+            folderQuery = ""
+        }
+    }
+
+    func navigateToHome() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            route = .home
+            folderQuery = ""
+        }
+    }
+
     func launchApp(_ app: AppItem) {
         NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
-        NSApplication.shared.hide(nil)
+        if LauncherSettings.shared.launchBehavior == .closeAfterLaunch {
+            NSApplication.shared.hide(nil)
+        }
     }
 
     func refresh() {
@@ -373,10 +473,10 @@ struct SettingsView: View {
     // Animation triggers
     @State private var iconSizeBounce = 0
     @State private var spacingBounce = 0
-    @State private var columnsBounce = 0
     @State private var opacityBounce = 0
     @State private var categoryBounce = 0
     @State private var hotkeyBounce = 0
+    @State private var launchBehaviorBounce = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -447,24 +547,6 @@ struct SettingsView: View {
                         }
                     }
 
-                    // Columns
-                    AnimatedSettingSection(
-                        title: "每行數量",
-                        icon: "rectangle.split.3x1.fill",
-                        animationTrigger: columnsBounce
-                    ) {
-                        Picker("", selection: $settings.columnsCount) {
-                            Text("自動").tag(0)
-                            ForEach(4...12, id: \.self) { count in
-                                Text("\(count) 個").tag(count)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .onChange(of: settings.columnsCount) { _, _ in
-                            columnsBounce += 1
-                        }
-                    }
-
                     // Background Opacity
                     AnimatedSettingSection(
                         title: "背景深度",
@@ -496,6 +578,23 @@ struct SettingsView: View {
                             .onChange(of: settings.showCategories) { _, _ in
                                 categoryBounce += 1
                             }
+                    }
+
+                    // Launch Behavior
+                    AnimatedSettingSection(
+                        title: "啟動行為",
+                        icon: "arrow.up.forward.app.fill",
+                        animationTrigger: launchBehaviorBounce
+                    ) {
+                        Picker("", selection: $settings.launchBehavior) {
+                            ForEach(LaunchBehavior.allCases, id: \.self) { behavior in
+                                Text(behavior.displayName).tag(behavior)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: settings.launchBehavior) { _, _ in
+                            launchBehaviorBounce += 1
+                        }
                     }
 
                     // Hotkey
@@ -1160,9 +1259,212 @@ struct AppIconView: View {
     }
 }
 
+// MARK: - Folder Card View
+struct FolderCardView: View {
+    let folder: FolderGroup
+    let iconSize: CGFloat
+    let onTap: () -> Void
+    @State private var isHovered = false
+
+    // Preview icon size - larger icons
+    var previewIconSize: CGFloat {
+        max(36, iconSize * 0.65)
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 12) {
+                // 2x2 Preview Grid - NO background
+                LazyVGrid(columns: [GridItem(.fixed(previewIconSize)), GridItem(.fixed(previewIconSize))], spacing: 8) {
+                    ForEach(0..<4, id: \.self) { index in
+                        if index < folder.previewApps.count {
+                            Image(nsImage: folder.previewApps[index].icon)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: previewIconSize, height: previewIconSize)
+                                .shadow(color: .black.opacity(0.3), radius: 3)
+                        } else {
+                            Color.clear
+                                .frame(width: previewIconSize, height: previewIconSize)
+                        }
+                    }
+                }
+
+                // Folder Info
+                VStack(spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: folder.icon)
+                            .font(.system(size: 14))
+                        Text(folder.title)
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+
+                    Text("\(folder.count) 個應用程式")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+            }
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(isHovered ? Color.white.opacity(0.15) : Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .stroke(Color.white.opacity(isHovered ? 0.25 : 0.12), lineWidth: 1)
+                    )
+            )
+            .scaleEffect(isHovered ? 1.03 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+    }
+}
+
+// MARK: - Folder Grid View
+struct FolderGridView: View {
+    let folders: [FolderGroup]
+    let onFolderTap: (UUID) -> Void
+    @ObservedObject var settings = LauncherSettings.shared
+
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing + 10), count: calculateFolderColumns(width: geometry.size.width)),
+                    spacing: settings.gridSpacing + 10
+                ) {
+                    ForEach(folders) { folder in
+                        FolderCardView(folder: folder, iconSize: settings.iconSize) {
+                            onFolderTap(folder.id)
+                        }
+                    }
+                }
+                .padding(.horizontal, 100)
+                .padding(.vertical, 40)
+            }
+        }
+    }
+
+    // Auto calculate folder columns based on icon size
+    func calculateFolderColumns(width: CGFloat) -> Int {
+        let cardWidth = settings.iconSize * 2.2 + 60 // Approximate card width
+        let availableWidth = width - 200
+        return max(3, min(5, Int(availableWidth / cardWidth)))
+    }
+}
+
+// MARK: - Folder Detail Overlay
+struct FolderDetailOverlay: View {
+    let folder: FolderGroup
+    let apps: [AppItem]
+    @Binding var searchQuery: String
+    let onBack: () -> Void
+    let onAppTap: (AppItem) -> Void
+    @ObservedObject var settings = LauncherSettings.shared
+
+    var body: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 20) {
+                // Header
+                HStack(spacing: 16) {
+                    // Back Button
+                    Button(action: onBack) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 18, weight: .semibold))
+                            Text("返回")
+                                .font(.system(size: 15, weight: .medium))
+                        }
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    // Folder Title
+                    HStack(spacing: 10) {
+                        Image(systemName: folder.icon)
+                            .font(.system(size: 22))
+                        Text(folder.title)
+                            .font(.system(size: 24, weight: .bold))
+                        Text("(\(apps.count))")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    .foregroundColor(.white)
+
+                    Spacer()
+
+                    // Search Bar
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.white.opacity(0.7))
+                        TextField("搜尋此分類...", text: $searchQuery)
+                            .textFieldStyle(.plain)
+                            .foregroundColor(.white)
+                            .font(.system(size: 16))
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.white.opacity(0.12))
+                    )
+                    .frame(maxWidth: 300)
+                }
+                .padding(.horizontal, 80)
+                .padding(.top, 80)
+
+                // Apps Grid
+                ScrollView {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing),
+                                     count: calculateColumns(width: geometry.size.width - 160)),
+                        spacing: settings.gridSpacing
+                    ) {
+                        ForEach(apps) { app in
+                            AppIconView(app: app, size: settings.iconSize) {
+                                onAppTap(app)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 80)
+                    .padding(.vertical, 30)
+                }
+
+                // Bottom hint
+                Text("按 ESC 返回  |  快捷鍵: \(settings.hotkeyDescription)")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(.bottom, 80)
+            }
+        }
+        .background(
+            Color.black.opacity(0.2)
+                .ignoresSafeArea()
+        )
+        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+    }
+
+    func calculateColumns(width: CGFloat) -> Int {
+        let itemWidth = settings.iconSize + 50
+        let padding: CGFloat = 60
+        let availableWidth = width - padding
+        return max(4, Int(availableWidth / itemWidth))
+    }
+}
+
 // MARK: - Main Launcher View
 struct LauncherView: View {
-    @StateObject private var viewModel = LauncherViewModel()
+    @ObservedObject private var viewModel = LauncherViewModel.shared
     @ObservedObject var settings = LauncherSettings.shared
     @ObservedObject var categoryManager = CategoryManager.shared
 
@@ -1176,114 +1478,173 @@ struct LauncherView: View {
                 Color.black.opacity(settings.backgroundOpacity)
                     .ignoresSafeArea()
 
-                VStack(spacing: 16) {
-                    // Top Bar
-                    HStack {
-                        // Settings Button
-                        Button(action: { viewModel.showSettings.toggle() }) {
-                            Image(systemName: "gear")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white.opacity(0.7))
-                                .padding(10)
-                                .background(Circle().fill(Color.white.opacity(0.1)))
-                        }
-                        .buttonStyle(.plain)
-
-                        // Category Manager Button
-                        Button(action: { viewModel.showCategoryManager.toggle() }) {
-                            Image(systemName: "folder.badge.gearshape")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white.opacity(0.7))
-                                .padding(10)
-                                .background(Circle().fill(Color.white.opacity(0.1)))
-                        }
-                        .buttonStyle(.plain)
-
-                        Spacer()
-
-                        // Search Bar
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.white.opacity(0.7))
-                            TextField("搜尋應用程式...", text: $viewModel.searchText)
-                                .textFieldStyle(.plain)
-                                .foregroundColor(.white)
-                                .font(.system(size: 16))
-                        }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.white.opacity(0.12))
-                        )
-                        .frame(maxWidth: 350)
-
-                        Spacer()
-
-                        // Refresh Button
-                        Button(action: { viewModel.refresh() }) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white.opacity(0.7))
-                                .padding(10)
-                                .background(Circle().fill(Color.white.opacity(0.1)))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 80)
-                    .padding(.top, 80)
-
-                    // Category Filter
-                    if settings.showCategories {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                CategoryButton(category: nil, isSelected: viewModel.selectedCategory == nil) {
-                                    viewModel.selectedCategory = nil
-                                }
-
-                                ForEach(categoryManager.categories) { category in
-                                    CategoryButton(category: category, isSelected: viewModel.selectedCategory?.id == category.id) {
-                                        viewModel.selectedCategory = category
+                // Route-based content
+                if settings.showCategories {
+                    // Folder browsing mode
+                    ZStack {
+                        // Home view with folder cards
+                        if viewModel.route == .home {
+                            VStack(spacing: 16) {
+                                // Top Bar
+                                HStack {
+                                    // Settings Button
+                                    Button(action: { viewModel.showSettings.toggle() }) {
+                                        Image(systemName: "gear")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.white.opacity(0.7))
+                                            .padding(10)
+                                            .background(Circle().fill(Color.white.opacity(0.1)))
                                     }
+                                    .buttonStyle(.plain)
+
+                                    // Category Manager Button
+                                    Button(action: { viewModel.showCategoryManager.toggle() }) {
+                                        Image(systemName: "folder.badge.gearshape")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.white.opacity(0.7))
+                                            .padding(10)
+                                            .background(Circle().fill(Color.white.opacity(0.1)))
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Spacer()
+
+                                    // Search Bar (searches folder names when at home)
+                                    HStack {
+                                        Image(systemName: "magnifyingglass")
+                                            .foregroundColor(.white.opacity(0.7))
+                                        TextField("搜尋分類或應用程式...", text: $viewModel.searchText)
+                                            .textFieldStyle(.plain)
+                                            .foregroundColor(.white)
+                                            .font(.system(size: 16))
+                                    }
+                                    .padding(12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(Color.white.opacity(0.12))
+                                    )
+                                    .frame(maxWidth: 350)
+
+                                    Spacer()
+
+                                    // Refresh Button
+                                    Button(action: { viewModel.refresh() }) {
+                                        Image(systemName: "arrow.clockwise")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.white.opacity(0.7))
+                                            .padding(10)
+                                            .background(Circle().fill(Color.white.opacity(0.1)))
+                                    }
+                                    .buttonStyle(.plain)
                                 }
-                            }
-                            .padding(.horizontal, 80)
-                        }
-                    }
+                                .padding(.horizontal, 80)
+                                .padding(.top, 80)
 
-                    // Apps Grid
-                    ScrollView {
-                        if settings.showCategories && viewModel.selectedCategory == nil && viewModel.searchText.isEmpty {
-                            // Grouped view
-                            LazyVStack(alignment: .leading, spacing: 30) {
-                                ForEach(viewModel.groupedApps, id: \.0.id) { category, apps in
-                                    VStack(alignment: .leading, spacing: 15) {
-                                        HStack(spacing: 10) {
-                                            Image(systemName: category.icon)
-                                                .font(.system(size: 16))
-                                            Text(category.name)
-                                                .font(.system(size: 18, weight: .semibold))
-                                        }
-                                        .foregroundColor(.white.opacity(0.9))
-                                        .padding(.leading, 10)
-
+                                // Display folder cards or search results
+                                if viewModel.searchText.isEmpty {
+                                    // Folder Grid
+                                    FolderGridView(folders: viewModel.folderGroups) { folderId in
+                                        viewModel.navigateToFolder(id: folderId)
+                                    }
+                                } else {
+                                    // Search results - show apps matching search
+                                    ScrollView {
                                         LazyVGrid(
                                             columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing),
                                                          count: calculateColumns(width: geometry.size.width - 160)),
                                             spacing: settings.gridSpacing
                                         ) {
-                                            ForEach(apps) { app in
+                                            ForEach(viewModel.filteredApps) { app in
                                                 AppIconView(app: app, size: settings.iconSize) {
                                                     viewModel.launchApp(app)
                                                 }
                                             }
                                         }
+                                        .padding(.horizontal, 80)
+                                        .padding(.vertical, 30)
                                     }
                                 }
+
+                                // Bottom hint
+                                Text("按 ESC 關閉  |  快捷鍵: \(settings.hotkeyDescription)  |  點擊分類進入")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white.opacity(0.5))
+                                    .padding(.bottom, 80)
                             }
-                            .padding(.horizontal, 80)
-                            .padding(.vertical, 30)
-                        } else {
-                            // Flat view
+                            .transition(.opacity)
+                        }
+
+                        // Folder Detail view
+                        if case .folderDetail = viewModel.route, let folder = viewModel.activeFolder {
+                            FolderDetailOverlay(
+                                folder: folder,
+                                apps: viewModel.filteredFolderApps,
+                                searchQuery: $viewModel.folderQuery,
+                                onBack: { viewModel.navigateToHome() },
+                                onAppTap: { app in viewModel.launchApp(app) }
+                            )
+                        }
+                    }
+                } else {
+                    // Non-category mode - flat app list
+                    VStack(spacing: 16) {
+                        // Top Bar
+                        HStack {
+                            // Settings Button
+                            Button(action: { viewModel.showSettings.toggle() }) {
+                                Image(systemName: "gear")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .padding(10)
+                                    .background(Circle().fill(Color.white.opacity(0.1)))
+                            }
+                            .buttonStyle(.plain)
+
+                            // Category Manager Button
+                            Button(action: { viewModel.showCategoryManager.toggle() }) {
+                                Image(systemName: "folder.badge.gearshape")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .padding(10)
+                                    .background(Circle().fill(Color.white.opacity(0.1)))
+                            }
+                            .buttonStyle(.plain)
+
+                            Spacer()
+
+                            // Search Bar
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.white.opacity(0.7))
+                                TextField("搜尋應用程式...", text: $viewModel.searchText)
+                                    .textFieldStyle(.plain)
+                                    .foregroundColor(.white)
+                                    .font(.system(size: 16))
+                            }
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.white.opacity(0.12))
+                            )
+                            .frame(maxWidth: 350)
+
+                            Spacer()
+
+                            // Refresh Button
+                            Button(action: { viewModel.refresh() }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .padding(10)
+                                    .background(Circle().fill(Color.white.opacity(0.1)))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 80)
+                        .padding(.top, 80)
+
+                        // Flat view
+                        ScrollView {
                             LazyVGrid(
                                 columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing),
                                              count: calculateColumns(width: geometry.size.width - 160)),
@@ -1298,13 +1659,13 @@ struct LauncherView: View {
                             .padding(.horizontal, 80)
                             .padding(.vertical, 30)
                         }
-                    }
 
-                    // Bottom hint
-                    Text("按 ESC 關閉  |  快捷鍵: \(settings.hotkeyDescription)  |  點擊 ⚙️ 開啟設定")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.5))
-                        .padding(.bottom, 80)
+                        // Bottom hint
+                        Text("按 ESC 關閉  |  快捷鍵: \(settings.hotkeyDescription)  |  點擊 ⚙️ 開啟設定")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.5))
+                            .padding(.bottom, 80)
+                    }
                 }
 
                 // Settings Panel
@@ -1334,9 +1695,6 @@ struct LauncherView: View {
     }
 
     func calculateColumns(width: CGFloat) -> Int {
-        if settings.columnsCount > 0 {
-            return settings.columnsCount
-        }
         let itemWidth = settings.iconSize + 50
         let padding: CGFloat = 60
         let availableWidth = width - padding
@@ -1477,11 +1835,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(window?.contentView)
 
-        // Handle ESC key
+        // Reset to home state when showing window
+        let viewModel = LauncherViewModel.shared
+        viewModel.route = .home
+        viewModel.folderQuery = ""
+        viewModel.searchText = ""
+
+        // Handle ESC key with multi-level navigation
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if event.keyCode == 53 { // ESC key
-                self.window?.orderOut(nil)
-                return nil
+                let viewModel = LauncherViewModel.shared
+                let settings = LauncherSettings.shared
+
+                // Check if we're in folder browsing mode
+                if settings.showCategories {
+                    switch viewModel.route {
+                    case .folderDetail:
+                        // If in folder detail with search query, clear the query
+                        if !viewModel.folderQuery.isEmpty {
+                            viewModel.folderQuery = ""
+                            return nil
+                        }
+                        // If no search query, go back to home
+                        viewModel.navigateToHome()
+                        return nil
+
+                    case .home:
+                        // If at home with search text, clear it
+                        if !viewModel.searchText.isEmpty {
+                            viewModel.searchText = ""
+                            return nil
+                        }
+                        // Otherwise close the launcher
+                        self.window?.orderOut(nil)
+                        return nil
+                    }
+                } else {
+                    // Non-folder mode: clear search or close
+                    if !viewModel.searchText.isEmpty {
+                        viewModel.searchText = ""
+                        return nil
+                    }
+                    self.window?.orderOut(nil)
+                    return nil
+                }
             }
             return event
         }
