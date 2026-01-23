@@ -2,11 +2,21 @@
 
 一個為 macOS 打造的全螢幕應用程式啟動器，提供類似手機的資料夾式分類體驗。
 
+A full-screen app launcher for macOS with folder-style categorization, just like your phone.
+
 ![macOS](https://img.shields.io/badge/macOS-12.0%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 [![Download](https://img.shields.io/badge/Download-v1.2.0-brightgreen?style=for-the-badge)](https://github.com/aurocoredev/FullScreenLauncher/releases/tag/v1.2.0)
+
+---
+
+**[中文](#中文) | [English](#english)**
+
+---
+
+# 中文
 
 ## 功能特色
 
@@ -20,6 +30,7 @@
 - **啟動行為** - 可選擇啟動 App 後關閉或保持開啟
 - **全域快捷鍵** - 預設 `⌘⌥F1`，可自訂修改
 - **狀態列圖標** - 方便快速存取
+- **多語言支援** - 支援繁體中文與英文介面切換
 
 ## 截圖
 
@@ -93,24 +104,7 @@ swiftc -o FullScreenLauncher main.swift -framework Cocoa -framework SwiftUI -fra
 - **顯示分類** - 開啟資料夾模式 / 關閉顯示所有 App
 - **啟動行為** - 啟動後關閉 / 保持開啟
 - **全域快捷鍵** - 自訂您喜歡的快捷鍵組合
-
-## 更新日誌
-
-### v1.2.0
-- 新增資料夾式瀏覽體驗
-- 點擊分類卡片進入內頁查看 App
-- 資料夾內獨立搜尋功能
-- 新增啟動行為設定（關閉/保持開啟）
-- ESC 鍵支援多層級返回
-- 移除每行數量設定，改為自動計算
-
-### v1.1.0
-- 新增自訂分類功能
-- 新增分類管理介面
-- Bug 修復與效能優化
-
-### v1.0.0
-- 首次發布
+- **語言** - 繁體中文 / English
 
 ## 開機自動啟動
 
@@ -118,14 +112,136 @@ swiftc -o FullScreenLauncher main.swift -framework Cocoa -framework SwiftUI -fra
 2. 點擊「+」按鈕
 3. 選擇「FullScreenLauncher.app」
 
-## 授權條款
+---
 
-本專案採用 MIT 授權條款，詳見 [LICENSE](LICENSE) 文件。
+# English
 
-## 貢獻
+## Features
 
-歡迎提交 Issue 或 Pull Request！
+- **Folder-style Browsing** - Click category folders to enter, intuitive like a phone
+- **Full-screen Display** - Immersive experience covering the entire screen
+- **Frosted Glass Background** - Beautiful visual effects
+- **Auto Categorization** - Apps are automatically sorted into: Productivity, Development, Media, Social, Utilities, Games, Other
+- **Custom Categories** - Add, edit, delete categories, freely assign apps
+- **Instant Search** - Search all apps from home, search within category from folder
+- **Customizable Settings** - Adjust icon size, spacing, background opacity
+- **Launch Behavior** - Choose to close or stay open after launching an app
+- **Global Hotkey** - Default `⌘⌥F1`, customizable
+- **Menu Bar Icon** - Quick access from the status bar
+- **Multi-language Support** - Switch between Traditional Chinese and English
 
-## 致謝
+## Screenshots
 
-靈感來自 macOS 的 Launchpad，獻給所有懷念全螢幕啟動器的使用者。
+### Home - Folder Cards
+![Home](screenshots/screenshots-01.png)
+
+### Folder View - App List
+![Folder View](screenshots/screenshots-02.png)
+
+### Category Manager
+![Category Manager](screenshots/screenshots-03.png)
+
+### Settings Panel
+![Settings](screenshots/screenshots-04.png)
+
+## System Requirements
+
+- macOS 12.0 (Monterey) or later
+- Apple Silicon (M1/M2/M3) or Intel processor
+
+## Installation
+
+### Option 1: Download Pre-built Version (Recommended)
+
+1. **[Click here to download FullScreenLauncher.app.zip](https://github.com/aurocoredev/FullScreenLauncher/releases/download/v1.2.0/FullScreenLauncher.app.zip)**
+2. Unzip the file
+3. Drag `FullScreenLauncher.app` to your Applications folder
+4. On first launch, right-click → select "Open" (required for unsigned apps)
+
+> Or visit the [Releases page](https://github.com/aurocoredev/FullScreenLauncher/releases) for all versions
+
+### Option 2: Build from Source
+
+```bash
+# Clone the project
+git clone https://github.com/aurocoredev/FullScreenLauncher.git
+cd FullScreenLauncher
+
+# Build with the build script
+./build.sh
+
+# Or compile manually
+swiftc -o FullScreenLauncher main.swift -framework Cocoa -framework SwiftUI -framework Carbon -O
+```
+
+## Usage
+
+| Action | Function |
+|--------|----------|
+| `⌘⌥F1` | Global hotkey to open/close (customizable) |
+| Click folder | Enter category to view apps |
+| `ESC` | Go back / Clear search / Close window |
+| Click ⚙️ | Open settings panel |
+| Click 📁 | Open category manager |
+| Start typing | Search applications |
+
+### ESC Key Behavior
+
+- In folder with search text → Clear search
+- In folder without search text → Return to home
+- At home with search text → Clear search
+- At home without search text → Close window
+
+## Settings
+
+Available options in the settings panel:
+
+- **Icon Size** - 48px ~ 128px
+- **Spacing** - 10px ~ 60px
+- **Background Depth** - 10% ~ 90%
+- **Show Categories** - Enable folder mode / Disable to show all apps
+- **Launch Behavior** - Close after launch / Stay open
+- **Global Hotkey** - Customize your preferred key combination
+- **Language** - 繁體中文 / English
+
+## Launch at Login
+
+1. Open "System Settings" → "General" → "Login Items"
+2. Click the "+" button
+3. Select "FullScreenLauncher.app"
+
+---
+
+## Changelog
+
+### v1.2.1
+- Added Chinese/English language switching
+- Multi-language support for UI
+
+### v1.2.0
+- New folder-style browsing experience
+- Click category cards to enter and view apps
+- Independent search within folders
+- Added launch behavior setting (close/stay open)
+- ESC key supports multi-level navigation
+- Removed items-per-row setting, now auto-calculated
+
+### v1.1.0
+- Added custom category feature
+- Added category management interface
+- Bug fixes and performance improvements
+
+### v1.0.0
+- Initial release
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Issues and Pull Requests are welcome!
+
+## Acknowledgments
+
+Inspired by macOS Launchpad, dedicated to all users who miss a full-screen launcher experience.
