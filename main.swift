@@ -744,10 +744,14 @@ struct CategoryRowView: View {
     let onDelete: () -> Void
 
     @State private var isHovered = false
+    @State private var appCount: Int = 0
     @ObservedObject var categoryManager = CategoryManager.shared
 
-    var appCount: Int {
-        categoryManager.appCategoryMap.filter { $0.value == category.id }.count
+    func calculateAppCount() -> Int {
+        let apps = AppScanner.scanApplications()
+        return apps.filter { app in
+            categoryManager.getCategoryForApp(appPath: app.path, appName: app.name)?.id == category.id
+        }.count
     }
 
     var body: some View {
@@ -815,6 +819,9 @@ struct CategoryRowView: View {
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering
             }
+        }
+        .onAppear {
+            appCount = calculateAppCount()
         }
     }
 }
