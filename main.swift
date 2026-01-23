@@ -2,16 +2,195 @@ import Cocoa
 import SwiftUI
 import Carbon.HIToolbox
 
+// MARK: - Language Support
+enum AppLanguage: String, CaseIterable {
+    case chinese = "zh-TW"
+    case english = "en"
+
+    var displayName: String {
+        switch self {
+        case .chinese: return "繁體中文"
+        case .english: return "English"
+        }
+    }
+}
+
+class LocalizationManager: ObservableObject {
+    static let shared = LocalizationManager()
+
+    @Published var currentLanguage: AppLanguage {
+        didSet {
+            UserDefaults.standard.set(currentLanguage.rawValue, forKey: "appLanguage")
+        }
+    }
+
+    private let strings: [AppLanguage: [String: String]] = [
+        .chinese: [
+            // Launch Behavior
+            "closeAfterLaunch": "啟動後關閉",
+            "stayOpen": "保持開啟",
+
+            // Default Categories
+            "cat.productivity": "生產力工具",
+            "cat.development": "開發工具",
+            "cat.media": "影音媒體",
+            "cat.utilities": "系統工具",
+            "cat.social": "社交通訊",
+            "cat.games": "遊戲",
+            "cat.other": "其他",
+
+            // Settings
+            "settings": "設定",
+            "iconSize": "圖標大小",
+            "gridSpacing": "間距",
+            "backgroundDepth": "背景深度",
+            "showCategories": "顯示分類",
+            "groupByCategory": "依類別分組顯示應用程式",
+            "launchBehavior": "啟動行為",
+            "globalHotkey": "全域快捷鍵",
+            "language": "語言",
+            "cancel": "取消",
+            "modify": "修改",
+            "save": "儲存",
+            "add": "新增",
+            "done": "完成",
+
+            // Category Manager
+            "categoryManager": "分類管理",
+            "addCategory": "新增分類",
+            "editCategory": "編輯分類",
+            "resetToDefaults": "重置為預設分類",
+            "selectIcon": "選擇圖標",
+            "categoryName": "分類名稱",
+            "manageApps": "管理應用程式",
+            "deleteCategory": "刪除分類",
+            "appsCount": "%d 個應用程式",
+            "appsWillBeCategorized": "勾選的應用程式會歸類到「%@」",
+
+            // Main UI
+            "searchApps": "搜尋應用程式...",
+            "searchCategoryOrApps": "搜尋分類或應用程式...",
+            "searchThisCategory": "搜尋此分類...",
+            "back": "返回",
+            "all": "全部",
+
+            // Hints
+            "hintEscClose": "按 ESC 關閉",
+            "hintEscBack": "按 ESC 返回",
+            "hintHotkey": "快捷鍵",
+            "hintClickCategory": "點擊分類進入",
+            "hintClickSettings": "點擊 ⚙️ 開啟設定",
+
+            // Menu
+            "openLauncher": "開啟啟動器",
+            "quit": "結束"
+        ],
+        .english: [
+            // Launch Behavior
+            "closeAfterLaunch": "Close after launch",
+            "stayOpen": "Stay open",
+
+            // Default Categories
+            "cat.productivity": "Productivity",
+            "cat.development": "Development",
+            "cat.media": "Media",
+            "cat.utilities": "Utilities",
+            "cat.social": "Social",
+            "cat.games": "Games",
+            "cat.other": "Other",
+
+            // Settings
+            "settings": "Settings",
+            "iconSize": "Icon Size",
+            "gridSpacing": "Spacing",
+            "backgroundDepth": "Background Depth",
+            "showCategories": "Show Categories",
+            "groupByCategory": "Group applications by category",
+            "launchBehavior": "Launch Behavior",
+            "globalHotkey": "Global Hotkey",
+            "language": "Language",
+            "cancel": "Cancel",
+            "modify": "Modify",
+            "save": "Save",
+            "add": "Add",
+            "done": "Done",
+
+            // Category Manager
+            "categoryManager": "Category Manager",
+            "addCategory": "Add Category",
+            "editCategory": "Edit Category",
+            "resetToDefaults": "Reset to Defaults",
+            "selectIcon": "Select Icon",
+            "categoryName": "Category Name",
+            "manageApps": "Manage Apps",
+            "deleteCategory": "Delete Category",
+            "appsCount": "%d apps",
+            "appsWillBeCategorized": "Selected apps will be added to \"%@\"",
+
+            // Main UI
+            "searchApps": "Search apps...",
+            "searchCategoryOrApps": "Search categories or apps...",
+            "searchThisCategory": "Search this category...",
+            "back": "Back",
+            "all": "All",
+
+            // Hints
+            "hintEscClose": "Press ESC to close",
+            "hintEscBack": "Press ESC to go back",
+            "hintHotkey": "Hotkey",
+            "hintClickCategory": "Click category to enter",
+            "hintClickSettings": "Click ⚙️ for settings",
+
+            // Menu
+            "openLauncher": "Open Launcher",
+            "quit": "Quit"
+        ]
+    ]
+
+    init() {
+        if let saved = UserDefaults.standard.string(forKey: "appLanguage"),
+           let lang = AppLanguage(rawValue: saved) {
+            self.currentLanguage = lang
+        } else {
+            self.currentLanguage = .chinese
+        }
+    }
+
+    func localized(_ key: String) -> String {
+        strings[currentLanguage]?[key] ?? key
+    }
+
+    func localized(_ key: String, _ args: CVarArg...) -> String {
+        let format = strings[currentLanguage]?[key] ?? key
+        return String(format: format, arguments: args)
+    }
+
+    // 取得分類的顯示名稱（支援動態翻譯）
+    func categoryDisplayName(_ category: CustomCategory) -> String {
+        if let key = category.categoryKey {
+            return localized("cat.\(key)")
+        }
+        return category.name
+    }
+}
+
+// 簡化存取的全域函式
+func L(_ key: String) -> String {
+    LocalizationManager.shared.localized(key)
+}
+
+func L(_ key: String, _ args: CVarArg...) -> String {
+    let format = LocalizationManager.shared.localized(key)
+    return String(format: format, arguments: args)
+}
+
 // MARK: - Launch Behavior
 enum LaunchBehavior: String, CaseIterable {
     case closeAfterLaunch = "closeAfterLaunch"
     case stayOpen = "stayOpen"
 
     var displayName: String {
-        switch self {
-        case .closeAfterLaunch: return "啟動後關閉"
-        case .stayOpen: return "保持開啟"
-        }
+        L(self.rawValue)
     }
 }
 
@@ -112,12 +291,20 @@ struct CustomCategory: Codable, Identifiable, Equatable {
     var name: String
     var icon: String
     var appPaths: [String]  // 儲存應用程式路徑
+    var categoryKey: String?  // 預設分類的 key（如 "productivity"）
 
-    init(id: UUID = UUID(), name: String, icon: String = "folder.fill", appPaths: [String] = []) {
+    // 顯示名稱（動態翻譯）
+    var displayName: String {
+        LocalizationManager.shared.categoryDisplayName(self)
+    }
+
+    init(id: UUID = UUID(), name: String, icon: String = "folder.fill",
+         appPaths: [String] = [], categoryKey: String? = nil) {
         self.id = id
         self.name = name
         self.icon = icon
         self.appPaths = appPaths
+        self.categoryKey = categoryKey
     }
 }
 
@@ -128,13 +315,13 @@ class CategoryManager: ObservableObject {
     @Published var categories: [CustomCategory] = []
 
     private let defaultCategories: [CustomCategory] = [
-        CustomCategory(name: "生產力工具", icon: "briefcase.fill"),
-        CustomCategory(name: "開發工具", icon: "hammer.fill"),
-        CustomCategory(name: "影音媒體", icon: "play.circle.fill"),
-        CustomCategory(name: "系統工具", icon: "gearshape.2.fill"),
-        CustomCategory(name: "社交通訊", icon: "message.fill"),
-        CustomCategory(name: "遊戲", icon: "gamecontroller.fill"),
-        CustomCategory(name: "其他", icon: "square.grid.2x2.fill")
+        CustomCategory(name: "生產力工具", icon: "briefcase.fill", categoryKey: "productivity"),
+        CustomCategory(name: "開發工具", icon: "hammer.fill", categoryKey: "development"),
+        CustomCategory(name: "影音媒體", icon: "play.circle.fill", categoryKey: "media"),
+        CustomCategory(name: "系統工具", icon: "gearshape.2.fill", categoryKey: "utilities"),
+        CustomCategory(name: "社交通訊", icon: "message.fill", categoryKey: "social"),
+        CustomCategory(name: "遊戲", icon: "gamecontroller.fill", categoryKey: "games"),
+        CustomCategory(name: "其他", icon: "square.grid.2x2.fill", categoryKey: "other")
     ]
 
     private let saveKey = "customCategories"
@@ -146,6 +333,7 @@ class CategoryManager: ObservableObject {
     init() {
         loadCategories()
         loadAppCategoryMap()
+        migrateCategoriesToAddCategoryKey()
     }
 
     func loadCategories() {
@@ -154,6 +342,32 @@ class CategoryManager: ObservableObject {
             categories = decoded
         } else {
             categories = defaultCategories
+            saveCategories()
+        }
+    }
+
+    // 遷移舊版分類：根據名稱加入 categoryKey
+    private func migrateCategoriesToAddCategoryKey() {
+        let nameToKeyMap: [String: String] = [
+            "生產力工具": "productivity",
+            "開發工具": "development",
+            "影音媒體": "media",
+            "系統工具": "utilities",
+            "社交通訊": "social",
+            "遊戲": "games",
+            "其他": "other"
+        ]
+
+        var needsSave = false
+        for i in categories.indices {
+            if categories[i].categoryKey == nil,
+               let key = nameToKeyMap[categories[i].name] {
+                categories[i].categoryKey = key
+                needsSave = true
+            }
+        }
+
+        if needsSave {
             saveCategories()
         }
     }
@@ -219,6 +433,11 @@ class CategoryManager: ObservableObject {
         return autoCategorizePapp(appName: appName, path: appPath)
     }
 
+    private func findCategory(byKey key: String) -> CustomCategory? {
+        // 優先用 categoryKey 匹配，回退到名稱匹配
+        return categories.first { $0.categoryKey == key }
+    }
+
     private func autoCategorizePapp(appName: String, path: String) -> CustomCategory? {
         let name = appName.lowercased()
         let pathLower = path.lowercased()
@@ -227,14 +446,14 @@ class CategoryManager: ObservableObject {
         if name.contains("xcode") || name.contains("code") || name.contains("terminal") ||
            name.contains("git") || name.contains("docker") || name.contains("sublime") ||
            name.contains("visual studio") || name.contains("intellij") || name.contains("android") {
-            return categories.first { $0.name == "開發工具" }
+            return findCategory(byKey: "development")
         }
 
         // Media
         if name.contains("music") || name.contains("photo") || name.contains("video") ||
            name.contains("spotify") || name.contains("vlc") || name.contains("imovie") ||
            name.contains("final cut") || name.contains("garageband") || name.contains("quicktime") {
-            return categories.first { $0.name == "影音媒體" }
+            return findCategory(byKey: "media")
         }
 
         // Social
@@ -242,7 +461,7 @@ class CategoryManager: ObservableObject {
            name.contains("discord") || name.contains("telegram") || name.contains("whatsapp") ||
            name.contains("zoom") || name.contains("teams") || name.contains("facetime") ||
            name.contains("line") || name.contains("wechat") {
-            return categories.first { $0.name == "社交通訊" }
+            return findCategory(byKey: "social")
         }
 
         // Productivity
@@ -250,23 +469,23 @@ class CategoryManager: ObservableObject {
            name.contains("numbers") || name.contains("keynote") || name.contains("notion") ||
            name.contains("notes") || name.contains("reminder") || name.contains("calendar") ||
            name.contains("safari") || name.contains("chrome") || name.contains("firefox") {
-            return categories.first { $0.name == "生產力工具" }
+            return findCategory(byKey: "productivity")
         }
 
         // Utilities
         if pathLower.contains("utilities") || name.contains("system") || name.contains("disk") ||
            name.contains("activity") || name.contains("console") || name.contains("finder") ||
            name.contains("setting") || name.contains("preference") {
-            return categories.first { $0.name == "系統工具" }
+            return findCategory(byKey: "utilities")
         }
 
         // Games
         if name.contains("game") || name.contains("steam") || name.contains("chess") ||
            pathLower.contains("games") {
-            return categories.first { $0.name == "遊戲" }
+            return findCategory(byKey: "games")
         }
 
-        return categories.first { $0.name == "其他" }
+        return findCategory(byKey: "other")
     }
 
     func resetToDefaults() {
@@ -414,7 +633,7 @@ class LauncherViewModel: ObservableObject {
 
         return categoryManager.categories.compactMap { category in
             guard let categoryApps = grouped[category.id], !categoryApps.isEmpty else { return nil }
-            return FolderGroup(id: category.id, title: category.name, icon: category.icon, apps: categoryApps)
+            return FolderGroup(id: category.id, title: category.displayName, icon: category.icon, apps: categoryApps)
         }
     }
 
@@ -467,6 +686,7 @@ class LauncherViewModel: ObservableObject {
 // MARK: - Settings View
 struct SettingsView: View {
     @ObservedObject var settings = LauncherSettings.shared
+    @ObservedObject var localization = LocalizationManager.shared
     @Binding var isPresented: Bool
     @State private var isRecordingHotkey = false
 
@@ -477,6 +697,7 @@ struct SettingsView: View {
     @State private var categoryBounce = 0
     @State private var hotkeyBounce = 0
     @State private var launchBehaviorBounce = 0
+    @State private var languageBounce = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -486,7 +707,7 @@ struct SettingsView: View {
                     .font(.system(size: 20))
                     .foregroundColor(.blue)
                     .symbolEffect(.rotate, value: isPresented)
-                Text("設定")
+                Text(L("settings"))
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.primary)
                 Spacer()
@@ -507,7 +728,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // Icon Size
                     AnimatedSettingSection(
-                        title: "圖標大小",
+                        title: L("iconSize"),
                         icon: "square.grid.2x2.fill",
                         animationTrigger: iconSizeBounce
                     ) {
@@ -530,7 +751,7 @@ struct SettingsView: View {
 
                     // Grid Spacing
                     AnimatedSettingSection(
-                        title: "間距",
+                        title: L("gridSpacing"),
                         icon: "arrow.left.arrow.right",
                         animationTrigger: spacingBounce
                     ) {
@@ -549,7 +770,7 @@ struct SettingsView: View {
 
                     // Background Opacity
                     AnimatedSettingSection(
-                        title: "背景深度",
+                        title: L("backgroundDepth"),
                         icon: "circle.lefthalf.filled",
                         animationTrigger: opacityBounce
                     ) {
@@ -568,11 +789,11 @@ struct SettingsView: View {
 
                     // Show Categories
                     AnimatedSettingSection(
-                        title: "顯示分類",
+                        title: L("showCategories"),
                         icon: settings.showCategories ? "folder.fill" : "folder",
                         animationTrigger: categoryBounce
                     ) {
-                        Toggle("依類別分組顯示應用程式", isOn: $settings.showCategories)
+                        Toggle(L("groupByCategory"), isOn: $settings.showCategories)
                             .toggleStyle(.switch)
                             .tint(.orange)
                             .onChange(of: settings.showCategories) { _, _ in
@@ -582,7 +803,7 @@ struct SettingsView: View {
 
                     // Launch Behavior
                     AnimatedSettingSection(
-                        title: "啟動行為",
+                        title: L("launchBehavior"),
                         icon: "arrow.up.forward.app.fill",
                         animationTrigger: launchBehaviorBounce
                     ) {
@@ -599,7 +820,7 @@ struct SettingsView: View {
 
                     // Hotkey
                     AnimatedSettingSection(
-                        title: "全域快捷鍵",
+                        title: L("globalHotkey"),
                         icon: "command.circle.fill",
                         animationTrigger: hotkeyBounce
                     ) {
@@ -631,7 +852,7 @@ struct SettingsView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: isRecordingHotkey ? "stop.circle.fill" : "record.circle")
                                         .symbolEffect(.bounce, value: hotkeyBounce)
-                                    Text(isRecordingHotkey ? "取消" : "修改")
+                                    Text(isRecordingHotkey ? L("cancel") : L("modify"))
                                 }
                                 .foregroundColor(isRecordingHotkey ? .red : .blue)
                                 .padding(.horizontal, 12)
@@ -645,12 +866,29 @@ struct SettingsView: View {
                         }
                     }
 
+                    // Language
+                    AnimatedSettingSection(
+                        title: L("language"),
+                        icon: "globe",
+                        animationTrigger: languageBounce
+                    ) {
+                        Picker("", selection: $localization.currentLanguage) {
+                            ForEach(AppLanguage.allCases, id: \.self) { lang in
+                                Text(lang.displayName).tag(lang)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: localization.currentLanguage) { _, _ in
+                            languageBounce += 1
+                        }
+                    }
+
                     Spacer(minLength: 10)
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 20)
             }
-            .frame(maxHeight: 480)
+            .frame(maxHeight: 520)
         }
         .frame(width: 500)
         .background(
@@ -727,6 +965,7 @@ struct AnimatedSettingSection<Content: View>: View {
 struct CategoryManagerView: View {
     @Binding var isPresented: Bool
     @ObservedObject var categoryManager = CategoryManager.shared
+    @ObservedObject var localization = LocalizationManager.shared
     @State private var showAddCategory = false
     @State private var editingCategory: CustomCategory? = nil
     @State private var showAppSelector: CustomCategory? = nil
@@ -738,7 +977,7 @@ struct CategoryManagerView: View {
                 Image(systemName: "folder.badge.gearshape")
                     .font(.system(size: 20))
                     .foregroundColor(.blue)
-                Text("分類管理")
+                Text(L("categoryManager"))
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.primary)
                 Spacer()
@@ -775,7 +1014,7 @@ struct CategoryManagerView: View {
                         HStack {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 20))
-                            Text("新增分類")
+                            Text(L("addCategory"))
                                 .font(.system(size: 15, weight: .medium))
                         }
                         .foregroundColor(.blue)
@@ -794,7 +1033,7 @@ struct CategoryManagerView: View {
                     }) {
                         HStack {
                             Image(systemName: "arrow.counterclockwise")
-                            Text("重置為預設分類")
+                            Text(L("resetToDefaults"))
                         }
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
@@ -873,6 +1112,7 @@ struct CategoryRowView: View {
     @State private var isHovered = false
     @State private var appCount: Int = 0
     @ObservedObject var categoryManager = CategoryManager.shared
+    @ObservedObject var localization = LocalizationManager.shared
 
     func calculateAppCount() -> Int {
         let apps = AppScanner.scanApplications()
@@ -889,10 +1129,10 @@ struct CategoryRowView: View {
                 .frame(width: 36)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(category.name)
+                Text(category.displayName)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.primary)
-                Text("\(appCount) 個應用程式")
+                Text(L("appsCount", appCount))
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
@@ -904,21 +1144,21 @@ struct CategoryRowView: View {
                 CategoryActionButton(
                     icon: "square.grid.2x2",
                     color: .blue,
-                    helpText: "管理應用程式",
+                    helpText: L("manageApps"),
                     action: onManageApps
                 )
 
                 CategoryActionButton(
                     icon: "pencil",
                     color: .orange,
-                    helpText: "編輯分類",
+                    helpText: L("editCategory"),
                     action: onEdit
                 )
 
                 CategoryActionButton(
                     icon: "trash",
                     color: .red,
-                    helpText: "刪除分類",
+                    helpText: L("deleteCategory"),
                     action: onDelete
                 )
             }
@@ -960,15 +1200,15 @@ struct AddCategorySheet: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("新增分類")
+            Text(L("addCategory"))
                 .font(.system(size: 18, weight: .semibold))
 
-            TextField("分類名稱", text: $categoryName)
+            TextField(L("categoryName"), text: $categoryName)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 250)
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("選擇圖標")
+                Text(L("selectIcon"))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
 
@@ -990,12 +1230,12 @@ struct AddCategorySheet: View {
             }
 
             HStack(spacing: 16) {
-                Button("取消") {
+                Button(L("cancel")) {
                     isPresented = false
                 }
                 .keyboardShortcut(.cancelAction)
 
-                Button("新增") {
+                Button(L("add")) {
                     if !categoryName.isEmpty {
                         categoryManager.addCategory(name: categoryName, icon: selectedIcon)
                         isPresented = false
@@ -1029,21 +1269,21 @@ struct EditCategorySheet: View {
     init(category: CustomCategory, isPresented: Binding<Bool>) {
         self.category = category
         self._isPresented = isPresented
-        self._categoryName = State(initialValue: category.name)
+        self._categoryName = State(initialValue: category.displayName)
         self._selectedIcon = State(initialValue: category.icon)
     }
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("編輯分類")
+            Text(L("editCategory"))
                 .font(.system(size: 18, weight: .semibold))
 
-            TextField("分類名稱", text: $categoryName)
+            TextField(L("categoryName"), text: $categoryName)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 250)
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("選擇圖標")
+                Text(L("selectIcon"))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
 
@@ -1065,16 +1305,20 @@ struct EditCategorySheet: View {
             }
 
             HStack(spacing: 16) {
-                Button("取消") {
+                Button(L("cancel")) {
                     isPresented = false
                 }
                 .keyboardShortcut(.cancelAction)
 
-                Button("儲存") {
+                Button(L("save")) {
                     if !categoryName.isEmpty {
                         var updatedCategory = category
                         updatedCategory.name = categoryName
                         updatedCategory.icon = selectedIcon
+                        // 如果編輯的是預設分類，移除 categoryKey 讓它變成自訂分類
+                        if category.categoryKey != nil {
+                            updatedCategory.categoryKey = nil
+                        }
                         categoryManager.updateCategory(updatedCategory)
                         isPresented = false
                     }
@@ -1111,7 +1355,7 @@ struct AppSelectorSheet: View {
                     Image(systemName: category.icon)
                         .font(.system(size: 24))
                         .foregroundColor(.blue)
-                    Text(category.name)
+                    Text(category.displayName)
                         .font(.system(size: 18, weight: .semibold))
                     Spacer()
                     Button(action: { isPresented = false }) {
@@ -1122,7 +1366,7 @@ struct AppSelectorSheet: View {
                     .buttonStyle(.plain)
                 }
 
-                TextField("搜尋應用程式...", text: $searchText)
+                TextField(L("searchApps"), text: $searchText)
                     .textFieldStyle(.roundedBorder)
             }
             .padding(20)
@@ -1140,11 +1384,11 @@ struct AppSelectorSheet: View {
 
             // Footer
             HStack {
-                Text("勾選的應用程式會歸類到「\(category.name)」")
+                Text(L("appsWillBeCategorized", category.displayName))
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                 Spacer()
-                Button("完成") {
+                Button(L("done")) {
                     isPresented = false
                 }
                 .keyboardShortcut(.defaultAction)
@@ -1210,7 +1454,7 @@ struct CategoryButton: View {
     let action: () -> Void
 
     var title: String {
-        category?.name ?? "全部"
+        category?.displayName ?? L("all")
     }
 
     var icon: String {
@@ -1283,6 +1527,7 @@ struct FolderCardView: View {
     let iconSize: CGFloat
     let onTap: () -> Void
     @State private var isHovered = false
+    @ObservedObject var localization = LocalizationManager.shared
 
     // Preview icon size - larger icons
     var previewIconSize: CGFloat {
@@ -1318,7 +1563,7 @@ struct FolderCardView: View {
                     }
                     .foregroundColor(.white)
 
-                    Text("\(folder.count) 個應用程式")
+                    Text(L("appsCount", folder.count))
                         .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.6))
                 }
@@ -1384,6 +1629,7 @@ struct FolderDetailOverlay: View {
     let onBack: () -> Void
     let onAppTap: (AppItem) -> Void
     @ObservedObject var settings = LauncherSettings.shared
+    @ObservedObject var localization = LocalizationManager.shared
 
     var body: some View {
         GeometryReader { geometry in
@@ -1395,7 +1641,7 @@ struct FolderDetailOverlay: View {
                         HStack(spacing: 8) {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 18, weight: .semibold))
-                            Text("返回")
+                            Text(L("back"))
                                 .font(.system(size: 15, weight: .medium))
                         }
                         .foregroundColor(.white.opacity(0.8))
@@ -1426,7 +1672,7 @@ struct FolderDetailOverlay: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.white.opacity(0.7))
-                        TextField("搜尋此分類...", text: $searchQuery)
+                        TextField(L("searchThisCategory"), text: $searchQuery)
                             .textFieldStyle(.plain)
                             .foregroundColor(.white)
                             .font(.system(size: 16))
@@ -1459,7 +1705,7 @@ struct FolderDetailOverlay: View {
                 }
 
                 // Bottom hint
-                Text("按 ESC 返回  |  快捷鍵: \(settings.hotkeyDescription)")
+                Text("\(L("hintEscBack"))  |  \(L("hintHotkey")): \(settings.hotkeyDescription)")
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.5))
                     .padding(.bottom, 80)
@@ -1485,6 +1731,7 @@ struct LauncherView: View {
     @ObservedObject private var viewModel = LauncherViewModel.shared
     @ObservedObject var settings = LauncherSettings.shared
     @ObservedObject var categoryManager = CategoryManager.shared
+    @ObservedObject var localization = LocalizationManager.shared
 
     var body: some View {
         GeometryReader { geometry in
@@ -1531,7 +1778,7 @@ struct LauncherView: View {
                                     HStack {
                                         Image(systemName: "magnifyingglass")
                                             .foregroundColor(.white.opacity(0.7))
-                                        TextField("搜尋分類或應用程式...", text: $viewModel.searchText)
+                                        TextField(L("searchCategoryOrApps"), text: $viewModel.searchText)
                                             .textFieldStyle(.plain)
                                             .foregroundColor(.white)
                                             .font(.system(size: 16))
@@ -1584,7 +1831,7 @@ struct LauncherView: View {
                                 }
 
                                 // Bottom hint
-                                Text("按 ESC 關閉  |  快捷鍵: \(settings.hotkeyDescription)  |  點擊分類進入")
+                                Text("\(L("hintEscClose"))  |  \(L("hintHotkey")): \(settings.hotkeyDescription)  |  \(L("hintClickCategory"))")
                                     .font(.system(size: 12))
                                     .foregroundColor(.white.opacity(0.5))
                                     .padding(.bottom, 80)
@@ -1634,7 +1881,7 @@ struct LauncherView: View {
                             HStack {
                                 Image(systemName: "magnifyingglass")
                                     .foregroundColor(.white.opacity(0.7))
-                                TextField("搜尋應用程式...", text: $viewModel.searchText)
+                                TextField(L("searchApps"), text: $viewModel.searchText)
                                     .textFieldStyle(.plain)
                                     .foregroundColor(.white)
                                     .font(.system(size: 16))
@@ -1679,7 +1926,7 @@ struct LauncherView: View {
                         }
 
                         // Bottom hint
-                        Text("按 ESC 關閉  |  快捷鍵: \(settings.hotkeyDescription)  |  點擊 ⚙️ 開啟設定")
+                        Text("\(L("hintEscClose"))  |  \(L("hintHotkey")): \(settings.hotkeyDescription)  |  \(L("hintClickSettings"))")
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.5))
                             .padding(.bottom, 80)
@@ -1788,9 +2035,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Setup menu
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "開啟啟動器", action: #selector(showWindow), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L("openLauncher"), action: #selector(showWindow), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "結束", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: L("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem?.menu = menu
 
         // Register global hotkey
