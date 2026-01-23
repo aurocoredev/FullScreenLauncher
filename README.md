@@ -6,6 +6,8 @@
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+[![Download](https://img.shields.io/badge/Download-v1.1.0-brightgreen?style=for-the-badge)](https://github.com/aurocoredev/FullScreenLauncher/releases/tag/v1.1.0)
+
 ## 功能特色
 
 - **全螢幕顯示** - 覆蓋整個螢幕，沉浸式體驗
@@ -34,11 +36,14 @@
 
 ## 安裝方式
 
-### 方法一：下載預編譯版本
+### 方法一：下載預編譯版本（推薦）
 
-1. 前往 [Releases](../../releases) 頁面
-2. 下載最新版本的 `FullScreenLauncher.app.zip`
-3. 解壓縮後拖曳到「應用程式」資料夾
+1. **[點此下載 FullScreenLauncher.app.zip](https://github.com/aurocoredev/FullScreenLauncher/releases/download/v1.1.0/FullScreenLauncher.app.zip)**
+2. 解壓縮 zip 檔案
+3. 將 `FullScreenLauncher.app` 拖曳到「應用程式」資料夾
+4. 首次開啟時，右鍵點擊 → 選擇「打開」（因為沒有 Apple 開發者簽名）
+
+> 或前往 [Releases 頁面](https://github.com/aurocoredev/FullScreenLauncher/releases) 查看所有版本
 
 ### 方法二：從原始碼編譯
 
