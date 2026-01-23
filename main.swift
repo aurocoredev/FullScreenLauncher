@@ -835,6 +835,34 @@ struct CategoryManagerView: View {
     }
 }
 
+// MARK: - Category Action Button
+struct CategoryActionButton: View {
+    let icon: String
+    let color: Color
+    let helpText: String
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundColor(color)
+                .padding(8)
+                .background(Circle().fill(color.opacity(isHovered ? 0.25 : 0.1)))
+                .scaleEffect(isHovered ? 1.1 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .help(helpText)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+    }
+}
+
 // MARK: - Category Row View
 struct CategoryRowView: View {
     let category: CustomCategory
@@ -871,38 +899,28 @@ struct CategoryRowView: View {
 
             Spacer()
 
-            if isHovered {
-                HStack(spacing: 8) {
-                    Button(action: onManageApps) {
-                        Image(systemName: "square.grid.2x2")
-                            .font(.system(size: 14))
-                            .foregroundColor(.blue)
-                            .padding(8)
-                            .background(Circle().fill(Color.blue.opacity(0.1)))
-                    }
-                    .buttonStyle(.plain)
-                    .help("管理應用程式")
+            // 按鈕持續顯示，各自獨立 hover 效果
+            HStack(spacing: 8) {
+                CategoryActionButton(
+                    icon: "square.grid.2x2",
+                    color: .blue,
+                    helpText: "管理應用程式",
+                    action: onManageApps
+                )
 
-                    Button(action: onEdit) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 14))
-                            .foregroundColor(.orange)
-                            .padding(8)
-                            .background(Circle().fill(Color.orange.opacity(0.1)))
-                    }
-                    .buttonStyle(.plain)
-                    .help("編輯分類")
+                CategoryActionButton(
+                    icon: "pencil",
+                    color: .orange,
+                    helpText: "編輯分類",
+                    action: onEdit
+                )
 
-                    Button(action: onDelete) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 14))
-                            .foregroundColor(.red)
-                            .padding(8)
-                            .background(Circle().fill(Color.red.opacity(0.1)))
-                    }
-                    .buttonStyle(.plain)
-                    .help("刪除分類")
-                }
+                CategoryActionButton(
+                    icon: "trash",
+                    color: .red,
+                    helpText: "刪除分類",
+                    action: onDelete
+                )
             }
         }
         .padding(14)
