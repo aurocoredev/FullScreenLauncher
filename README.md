@@ -18,7 +18,14 @@
 
 ## 截圖
 
-（可在此處添加截圖）
+### 主畫面
+![主畫面](screenshots/screenshots-01.png)
+
+### 分類管理
+![分類管理](screenshots/screenshots-02.png)
+
+### 設定面板
+![設定面板](screenshots/screenshots-03.png)
 
 ## 系統需求
 
@@ -37,7 +44,7 @@
 
 ```bash
 # 複製專案
-git clone https://github.com/YOUR_USERNAME/FullScreenLauncher.git
+git clone https://github.com/aurocoredev/FullScreenLauncher.git
 cd FullScreenLauncher
 
 # 編譯
