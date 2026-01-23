@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Build
+build/
+*.o
+*.swp
+*.swo
+
+# App Bundle (不追蹤編譯後的 app，使用者自行編譯)
+*.app/
+
+# Icon set (會從 SVG 重新生成)
+AppIcon.iconset/
