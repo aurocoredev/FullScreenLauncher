@@ -26,3 +26,4 @@ build/
 # Icon set (會從 SVG 重新生成)
 AppIcon.iconset/
 *.zip
+CLAUDE.md
