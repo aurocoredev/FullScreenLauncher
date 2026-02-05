@@ -1986,6 +1986,49 @@ struct VisualEffectView: NSViewRepresentable {
     }
 }
 
+// MARK: - Directory Monitor
+class DirectoryMonitor {
+    private var sources: [DispatchSourceFileSystemObject] = []
+    private var fileDescriptors: [Int32] = []
+    private var debounceWorkItem: DispatchWorkItem?
+
+    func startMonitoring(onChange: @escaping () -> Void) {
+        let directories = [
+            "/Applications",
+            "/System/Applications",
+            "/System/Applications/Utilities",
+            NSHomeDirectory() + "/Applications"
+        ]
+
+        for dir in directories {
+            let fd = open(dir, O_EVTONLY)
+            guard fd >= 0 else { continue }
+            fileDescriptors.append(fd)
+
+            let source = DispatchSource.makeFileSystemObjectSource(
+                fileDescriptor: fd,
+                eventMask: [.write, .rename],
+                queue: .main
+            )
+            source.setEventHandler { [weak self] in
+                self?.debounceWorkItem?.cancel()
+                let work = DispatchWorkItem { onChange() }
+                self?.debounceWorkItem = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+            }
+            source.setCancelHandler { close(fd) }
+            source.resume()
+            sources.append(source)
+        }
+    }
+
+    func stopMonitoring() {
+        sources.forEach { $0.cancel() }
+        sources.removeAll()
+        fileDescriptors.removeAll()
+    }
+}
+
 // MARK: - Hotkey Manager
 class HotkeyManager {
     static let shared = HotkeyManager()
@@ -2024,6 +2067,7 @@ class HotkeyManager {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow?
     var statusItem: NSStatusItem?
+    var directoryMonitor = DirectoryMonitor()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Create status bar item
@@ -2058,6 +2102,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return noErr
         }, 1, &eventSpec, nil, nil)
+
+        // Monitor app directories for changes
+        directoryMonitor.startMonitoring {
+            LauncherViewModel.shared.refresh()
+        }
 
         // Show window initially
         showWindow()
@@ -2099,6 +2148,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(window?.contentView)
+
+        // Refresh app list to pick up newly installed apps
+        LauncherViewModel.shared.refresh()
 
         // Reset to home state when showing window
         let viewModel = LauncherViewModel.shared
