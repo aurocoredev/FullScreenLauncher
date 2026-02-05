@@ -19,6 +19,7 @@ build/
 *.o
 *.swp
 *.swo
+FullScreenLauncher
 
 # App Bundle (不追蹤編譯後的 app，使用者自行編譯)
 *.app/
