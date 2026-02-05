@@ -37,6 +37,9 @@ class LocalizationManager: ObservableObject {
             "cat.utilities": "系統工具",
             "cat.social": "社交通訊",
             "cat.games": "遊戲",
+            "cat.design": "創意設計",
+            "cat.education": "教育學習",
+            "cat.browsers": "瀏覽器",
             "cat.other": "其他",
 
             // Settings
@@ -97,6 +100,9 @@ class LocalizationManager: ObservableObject {
             "cat.utilities": "Utilities",
             "cat.social": "Social",
             "cat.games": "Games",
+            "cat.design": "Design",
+            "cat.education": "Education",
+            "cat.browsers": "Browsers",
             "cat.other": "Other",
 
             // Settings
@@ -321,6 +327,9 @@ class CategoryManager: ObservableObject {
         CustomCategory(name: "系統工具", icon: "gearshape.2.fill", categoryKey: "utilities"),
         CustomCategory(name: "社交通訊", icon: "message.fill", categoryKey: "social"),
         CustomCategory(name: "遊戲", icon: "gamecontroller.fill", categoryKey: "games"),
+        CustomCategory(name: "創意設計", icon: "paintbrush.fill", categoryKey: "design"),
+        CustomCategory(name: "教育學習", icon: "book.fill", categoryKey: "education"),
+        CustomCategory(name: "瀏覽器", icon: "globe", categoryKey: "browsers"),
         CustomCategory(name: "其他", icon: "square.grid.2x2.fill", categoryKey: "other")
     ]
 
@@ -334,6 +343,7 @@ class CategoryManager: ObservableObject {
         loadCategories()
         loadAppCategoryMap()
         migrateCategoriesToAddCategoryKey()
+        migrateAddNewDefaultCategories()
     }
 
     func loadCategories() {
@@ -355,6 +365,9 @@ class CategoryManager: ObservableObject {
             "系統工具": "utilities",
             "社交通訊": "social",
             "遊戲": "games",
+            "創意設計": "design",
+            "教育學習": "education",
+            "瀏覽器": "browsers",
             "其他": "other"
         ]
 
@@ -370,6 +383,27 @@ class CategoryManager: ObservableObject {
         if needsSave {
             saveCategories()
         }
+    }
+
+    // 遷移：為舊使用者補上新增的預設分類
+    private func migrateAddNewDefaultCategories() {
+        let existingKeys = Set(categories.compactMap { $0.categoryKey })
+        let newDefaults = defaultCategories.filter {
+            guard let key = $0.categoryKey else { return false }
+            return !existingKeys.contains(key)
+        }
+
+        guard !newDefaults.isEmpty else { return }
+
+        // 插入到「其他」之前
+        if let otherIndex = categories.firstIndex(where: { $0.categoryKey == "other" }) {
+            for (offset, cat) in newDefaults.enumerated() {
+                categories.insert(cat, at: otherIndex + offset)
+            }
+        } else {
+            categories.append(contentsOf: newDefaults)
+        }
+        saveCategories()
     }
 
     func saveCategories() {
@@ -442,49 +476,112 @@ class CategoryManager: ObservableObject {
         let name = appName.lowercased()
         let pathLower = path.lowercased()
 
-        // Development
-        if name.contains("xcode") || name.contains("code") || name.contains("terminal") ||
-           name.contains("git") || name.contains("docker") || name.contains("sublime") ||
-           name.contains("visual studio") || name.contains("intellij") || name.contains("android") {
+        // 依優先級排列：越前面的分類優先級越高
+
+        // 1. Browsers（在生產力之前，避免 Safari/Chrome 被歸到生產力）
+        let browserKeywords = [
+            "safari", "chrome", "firefox", "edge", "brave", "arc", "opera",
+            "vivaldi", "tor browser", "orion", "chromium"
+        ]
+        if browserKeywords.contains(where: { name.contains($0) }) {
+            return findCategory(byKey: "browsers")
+        }
+
+        // 2. Design（在開發工具之前，避免 Figma 被「code」匹配走）
+        let designKeywords = [
+            "figma", "sketch", "photoshop", "illustrator", "affinity", "pixelmator",
+            "gimp", "inkscape", "canva", "blender", "lightroom", "capture one",
+            "acorn", "paintcode", "principle", "framer", "zeplin", "krita",
+            "vectornator", "linearity", "colorsnapper", "cinema 4d", "maya"
+        ]
+        if designKeywords.contains(where: { name.contains($0) }) {
+            return findCategory(byKey: "design")
+        }
+
+        // 3. Development
+        let devKeywords = [
+            "xcode", "code", "terminal", "git", "docker", "sublime",
+            "visual studio", "intellij", "android", "pycharm", "webstorm",
+            "phpstorm", "rider", "clion", "goland", "datagrip", "rubymine",
+            "fleet", "cursor", "nova", "bbedit", "iterm", "warp", "kitty",
+            "alacritty", "hyper", "postman", "insomnia", "charles", "proxyman",
+            "tableplus", "sequel pro", "dbeaver", "tower", "fork", "sourcetree",
+            "dash", "rapidapi", "httpie"
+        ]
+        if devKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "development")
         }
 
-        // Media
-        if name.contains("music") || name.contains("photo") || name.contains("video") ||
-           name.contains("spotify") || name.contains("vlc") || name.contains("imovie") ||
-           name.contains("final cut") || name.contains("garageband") || name.contains("quicktime") {
+        // 4. Media
+        let mediaKeywords = [
+            "music", "photo", "video", "spotify", "vlc", "imovie",
+            "final cut", "garageband", "quicktime", "netflix", "youtube",
+            "plex", "infuse", "iina", "mpv", "obs", "screenflow",
+            "podcast", "apple tv", "shazam", "audacity", "handbrake",
+            "davinci", "resolve", "premiere", "after effects", "logic pro",
+            "ableton", "fl studio", "pro tools", "audition", "permute",
+            "downie", "movist", "elmedia", "vox", "tidal", "deezer"
+        ]
+        if mediaKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "media")
         }
 
-        // Social
-        if name.contains("message") || name.contains("mail") || name.contains("slack") ||
-           name.contains("discord") || name.contains("telegram") || name.contains("whatsapp") ||
-           name.contains("zoom") || name.contains("teams") || name.contains("facetime") ||
-           name.contains("line") || name.contains("wechat") {
+        // 5. Social
+        let socialKeywords = [
+            "message", "mail", "slack", "discord", "telegram", "whatsapp",
+            "zoom", "teams", "facetime", "line", "wechat", "skype",
+            "signal", "viber", "lark", "feishu", "dingtalk", "webex",
+            "thunderbird", "spark", "airmail", "mimestream"
+        ]
+        if socialKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "social")
         }
 
-        // Productivity
-        if name.contains("word") || name.contains("excel") || name.contains("pages") ||
-           name.contains("numbers") || name.contains("keynote") || name.contains("notion") ||
-           name.contains("notes") || name.contains("reminder") || name.contains("calendar") ||
-           name.contains("safari") || name.contains("chrome") || name.contains("firefox") {
+        // 6. Education
+        let educationKeywords = [
+            "dictionary", "books", "classroom", "anki", "duolingo", "rosetta",
+            "quizlet", "swift playground", "playground", "translate", "coursera", "udemy"
+        ]
+        if educationKeywords.contains(where: { name.contains($0) }) {
+            return findCategory(byKey: "education")
+        }
+
+        // 7. Productivity（已移除 safari/chrome/firefox）
+        let productivityKeywords = [
+            "word", "excel", "pages", "numbers", "keynote", "notion",
+            "notes", "reminder", "calendar", "obsidian", "logseq", "craft",
+            "bear", "ulysses", "scrivener", "trello", "asana", "todoist",
+            "things", "omnifocus", "evernote", "onenote", "powerpoint",
+            "airtable", "linear", "jira", "fantastical", "pdf", "preview",
+            "acrobat", "alfred", "raycast"
+        ]
+        if productivityKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "productivity")
         }
 
-        // Utilities
-        if pathLower.contains("utilities") || name.contains("system") || name.contains("disk") ||
-           name.contains("activity") || name.contains("console") || name.contains("finder") ||
-           name.contains("setting") || name.contains("preference") {
+        // 8. Utilities
+        let utilityKeywords = [
+            "system", "disk", "activity", "console", "finder",
+            "setting", "preference", "vpn", "password", "1password",
+            "lastpass", "bitwarden", "keychain", "time machine", "screenshot",
+            "unarchiver", "keka", "betterzip", "appcleaner", "cleanmymac",
+            "istat", "bartender", "magnet", "rectangle", "karabiner",
+            "automator", "shortcut", "migration"
+        ]
+        if pathLower.contains("utilities") || utilityKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "utilities")
         }
 
-        // Games
-        if name.contains("game") || name.contains("steam") || name.contains("chess") ||
-           pathLower.contains("games") {
+        // 9. Games
+        let gameKeywords = [
+            "game", "steam", "chess", "epic games", "battle.net", "blizzard",
+            "minecraft", "roblox", "gog", "playcover"
+        ]
+        if gameKeywords.contains(where: { name.contains($0) }) || pathLower.contains("games") {
             return findCategory(byKey: "games")
         }
 
+        // 10. Other — fallback
         return findCategory(byKey: "other")
     }
 
