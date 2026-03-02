@@ -518,8 +518,16 @@ class CategoryManager: ObservableObject {
             "public.app-category.food-drink": "other",
         ]
 
-        guard let categoryKey = mapping[categoryType] else { return nil }
-        return findCategory(byKey: categoryKey)
+        // 直接匹配，或處理格式異常（如 "app-category-type=public.app-category.developer-tools"）
+        if let categoryKey = mapping[categoryType] {
+            return findCategory(byKey: categoryKey)
+        }
+        for (key, value) in mapping {
+            if categoryType.contains(key) {
+                return findCategory(byKey: value)
+            }
+        }
+        return nil
     }
 
     private func autoCategorizePapp(appName: String, path: String) -> CustomCategory? {
@@ -548,7 +556,8 @@ class CategoryManager: ObservableObject {
             "figma", "sketch", "photoshop", "illustrator", "affinity", "pixelmator",
             "gimp", "inkscape", "canva", "blender", "lightroom", "capture one",
             "acorn", "paintcode", "principle", "framer", "zeplin", "krita",
-            "vectornator", "linearity", "colorsnapper", "cinema 4d", "maya"
+            "vectornator", "linearity", "colorsnapper", "cinema 4d", "maya",
+            "adobe bridge"
         ]
         if designKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "design")
@@ -562,7 +571,7 @@ class CategoryManager: ObservableObject {
             "fleet", "cursor", "nova", "bbedit", "iterm", "warp", "kitty",
             "alacritty", "hyper", "postman", "insomnia", "charles", "proxyman",
             "tableplus", "sequel pro", "dbeaver", "tower", "fork", "sourcetree",
-            "dash", "rapidapi", "httpie"
+            "dash", "rapidapi", "httpie", "local"
         ]
         if devKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "development")
@@ -576,7 +585,8 @@ class CategoryManager: ObservableObject {
             "podcast", "apple tv", "shazam", "audacity", "handbrake",
             "davinci", "resolve", "premiere", "after effects", "logic pro",
             "ableton", "fl studio", "pro tools", "audition", "permute",
-            "downie", "movist", "elmedia", "vox", "tidal", "deezer"
+            "downie", "movist", "elmedia", "vox", "tidal", "deezer",
+            "blackmagic", "fairlight"
         ]
         if mediaKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "media")
@@ -587,7 +597,7 @@ class CategoryManager: ObservableObject {
             "message", "mail", "slack", "discord", "telegram", "whatsapp",
             "zoom", "teams", "facetime", "line", "wechat", "skype",
             "signal", "viber", "lark", "feishu", "dingtalk", "webex",
-            "thunderbird", "spark", "airmail", "mimestream"
+            "thunderbird", "spark", "airmail", "mimestream", "phone"
         ]
         if socialKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "social")
@@ -609,7 +619,7 @@ class CategoryManager: ObservableObject {
             "bear", "ulysses", "scrivener", "trello", "asana", "todoist",
             "things", "omnifocus", "evernote", "onenote", "powerpoint",
             "airtable", "linear", "jira", "fantastical", "pdf", "preview",
-            "acrobat", "alfred", "raycast"
+            "acrobat", "alfred", "raycast", "dropbox", "stocks"
         ]
         if productivityKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "productivity")
@@ -622,7 +632,9 @@ class CategoryManager: ObservableObject {
             "lastpass", "bitwarden", "keychain", "time machine", "screenshot",
             "unarchiver", "keka", "betterzip", "appcleaner", "cleanmymac",
             "istat", "bartender", "magnet", "rectangle", "karabiner",
-            "automator", "shortcut", "migration"
+            "automator", "shortcut", "migration", "calculator", "clock",
+            "findmy", "home", "weather", "iphone mirroring", "anydesk",
+            "defender", "avira"
         ]
         if pathLower.contains("utilities") || utilityKeywords.contains(where: { name.contains($0) }) {
             return findCategory(byKey: "utilities")
