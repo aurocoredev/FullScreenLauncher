@@ -472,7 +472,63 @@ class CategoryManager: ObservableObject {
         return categories.first { $0.categoryKey == key }
     }
 
+    private func nativeCategoryForApp(atPath path: String) -> CustomCategory? {
+        let plistPath = path + "/Contents/Info.plist"
+        guard let plist = NSDictionary(contentsOfFile: plistPath),
+              let categoryType = plist["LSApplicationCategoryType"] as? String else {
+            return nil
+        }
+
+        let mapping: [String: String] = [
+            "public.app-category.productivity": "productivity",
+            "public.app-category.developer-tools": "development",
+            "public.app-category.graphics-design": "design",
+            "public.app-category.photography": "design",
+            "public.app-category.video": "media",
+            "public.app-category.music": "media",
+            "public.app-category.entertainment": "media",
+            "public.app-category.social-networking": "social",
+            "public.app-category.education": "education",
+            "public.app-category.reference": "education",
+            "public.app-category.books": "education",
+            "public.app-category.games": "games",
+            "public.app-category.board-games": "games",
+            "public.app-category.action-games": "games",
+            "public.app-category.adventure-games": "games",
+            "public.app-category.arcade-games": "games",
+            "public.app-category.card-games": "games",
+            "public.app-category.casino-games": "games",
+            "public.app-category.puzzle-games": "games",
+            "public.app-category.racing-games": "games",
+            "public.app-category.role-playing-games": "games",
+            "public.app-category.simulation-games": "games",
+            "public.app-category.sports-games": "games",
+            "public.app-category.strategy-games": "games",
+            "public.app-category.trivia-games": "games",
+            "public.app-category.word-games": "games",
+            "public.app-category.utilities": "utilities",
+            "public.app-category.news": "productivity",
+            "public.app-category.finance": "productivity",
+            "public.app-category.business": "productivity",
+            "public.app-category.travel": "productivity",
+            "public.app-category.weather": "utilities",
+            "public.app-category.healthcare-fitness": "utilities",
+            "public.app-category.lifestyle": "other",
+            "public.app-category.medical": "other",
+            "public.app-category.food-drink": "other",
+        ]
+
+        guard let categoryKey = mapping[categoryType] else { return nil }
+        return findCategory(byKey: categoryKey)
+    }
+
     private func autoCategorizePapp(appName: String, path: String) -> CustomCategory? {
+        // 優先：讀取 macOS 原生分類（Info.plist 中的 LSApplicationCategoryType）
+        if let nativeCategory = nativeCategoryForApp(atPath: path) {
+            return nativeCategory
+        }
+
+        // 回退：關鍵字比對
         let name = appName.lowercased()
         let pathLower = path.lowercased()
 
@@ -628,14 +684,27 @@ class AppScanner {
             guard let contents = try? fileManager.contentsOfDirectory(atPath: directory) else { continue }
 
             for item in contents {
-                if item.hasSuffix(".app") {
-                    let fullPath = "\(directory)/\(item)"
-                    let appName = item.replacingOccurrences(of: ".app", with: "")
+                let fullPath = "\(directory)/\(item)"
 
+                if item.hasSuffix(".app") {
+                    let appName = item.replacingOccurrences(of: ".app", with: "")
                     let icon = NSWorkspace.shared.icon(forFile: fullPath)
                     icon.size = NSSize(width: 128, height: 128)
-
                     apps.append(AppItem(name: appName, path: fullPath, icon: icon))
+                } else if directory == "/Applications" || directory == NSHomeDirectory() + "/Applications" {
+                    // 掃描子目錄一層深度（Adobe 等 app 安裝在子目錄中）
+                    var isDir: ObjCBool = false
+                    if fileManager.fileExists(atPath: fullPath, isDirectory: &isDir), isDir.boolValue {
+                        if let subContents = try? fileManager.contentsOfDirectory(atPath: fullPath) {
+                            for subItem in subContents where subItem.hasSuffix(".app") {
+                                let subFullPath = "\(fullPath)/\(subItem)"
+                                let appName = subItem.replacingOccurrences(of: ".app", with: "")
+                                let icon = NSWorkspace.shared.icon(forFile: subFullPath)
+                                icon.size = NSSize(width: 128, height: 128)
+                                apps.append(AppItem(name: appName, path: subFullPath, icon: icon))
+                            }
+                        }
+                    }
                 }
             }
         }
