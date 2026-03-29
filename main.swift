@@ -2241,11 +2241,18 @@ class HotkeyManager {
     }
 }
 
+// MARK: - Key-Accepting Borderless Window
+class KeyableWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 // MARK: - App Delegate
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow?
     var statusItem: NSStatusItem?
     var directoryMonitor = DirectoryMonitor()
+    var escMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Create status bar item
@@ -2281,13 +2288,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return noErr
         }, 1, &eventSpec, nil, nil)
 
+        // Register ESC key handler once
+        escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53 else { return event } // ESC key
+            guard let self = self, let window = self.window, window.isVisible else { return event }
+
+            let viewModel = LauncherViewModel.shared
+            let settings = LauncherSettings.shared
+
+            if settings.showCategories {
+                switch viewModel.route {
+                case .folderDetail:
+                    if !viewModel.folderQuery.isEmpty {
+                        viewModel.folderQuery = ""
+                        return nil
+                    }
+                    viewModel.navigateToHome()
+                    return nil
+
+                case .home:
+                    if !viewModel.searchText.isEmpty {
+                        viewModel.searchText = ""
+                        return nil
+                    }
+                    window.orderOut(nil)
+                    return nil
+                }
+            } else {
+                if !viewModel.searchText.isEmpty {
+                    viewModel.searchText = ""
+                    return nil
+                }
+                window.orderOut(nil)
+                return nil
+            }
+        }
+
         // Monitor app directories for changes
         directoryMonitor.startMonitoring {
             LauncherViewModel.shared.refresh()
         }
 
-        // Show window initially
-        showWindow()
+        // Delay initial window show to avoid blocking screen on reboot/login
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.showWindow()
+        }
     }
 
     @objc func toggleWindow() {
@@ -2302,7 +2347,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if window == nil {
             guard let screen = NSScreen.main else { return }
 
-            window = NSWindow(
+            window = KeyableWindow(
                 contentRect: screen.frame,
                 styleMask: [.borderless],
                 backing: .buffered,
@@ -2335,48 +2380,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.route = .home
         viewModel.folderQuery = ""
         viewModel.searchText = ""
-
-        // Handle ESC key with multi-level navigation
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == 53 { // ESC key
-                let viewModel = LauncherViewModel.shared
-                let settings = LauncherSettings.shared
-
-                // Check if we're in folder browsing mode
-                if settings.showCategories {
-                    switch viewModel.route {
-                    case .folderDetail:
-                        // If in folder detail with search query, clear the query
-                        if !viewModel.folderQuery.isEmpty {
-                            viewModel.folderQuery = ""
-                            return nil
-                        }
-                        // If no search query, go back to home
-                        viewModel.navigateToHome()
-                        return nil
-
-                    case .home:
-                        // If at home with search text, clear it
-                        if !viewModel.searchText.isEmpty {
-                            viewModel.searchText = ""
-                            return nil
-                        }
-                        // Otherwise close the launcher
-                        self.window?.orderOut(nil)
-                        return nil
-                    }
-                } else {
-                    // Non-folder mode: clear search or close
-                    if !viewModel.searchText.isEmpty {
-                        viewModel.searchText = ""
-                        return nil
-                    }
-                    self.window?.orderOut(nil)
-                    return nil
-                }
-            }
-            return event
-        }
 
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
