@@ -54,6 +54,8 @@ class LocalizationManager: ObservableObject {
             "language": "語言",
             "cancel": "取消",
             "modify": "修改",
+            "hotkeyInUse": "此快捷鍵已被佔用，已保留原本的快捷鍵",
+            "hotkeyRegisterFailed": "無法註冊此快捷鍵（錯誤碼 %d），已保留原本的快捷鍵",
             "save": "儲存",
             "add": "新增",
             "done": "完成",
@@ -117,6 +119,8 @@ class LocalizationManager: ObservableObject {
             "language": "Language",
             "cancel": "Cancel",
             "modify": "Modify",
+            "hotkeyInUse": "This shortcut is already in use. Kept the previous one.",
+            "hotkeyRegisterFailed": "Couldn't register this shortcut (error %d). Kept the previous one.",
             "save": "Save",
             "add": "Add",
             "done": "Done",
@@ -335,6 +339,16 @@ class CategoryManager: ObservableObject {
 
     private let saveKey = "customCategories"
     private let appCategoryMapKey = "appCategoryMap"
+    private let seenDefaultKeysKey = "seenDefaultCategoryKeys"
+
+    // eeaa720 新增 design/education/browsers 之前就存在的預設分類；
+    // 舊使用者沒有 seen 紀錄時視為已見過，避免把他們刪掉的分類補回來
+    private let legacyDefaultKeys: Set<String> = [
+        "productivity", "development", "media", "utilities", "social", "games", "other"
+    ]
+
+    // 「其他」是自動分類的最終落點，不可刪除
+    static let fallbackCategoryKey = "other"
 
     // 應用程式路徑 -> 分類ID 的映射
     @Published var appCategoryMap: [String: UUID] = [:]
@@ -385,13 +399,17 @@ class CategoryManager: ObservableObject {
         }
     }
 
-    // 遷移：為舊使用者補上新增的預設分類
+    // 遷移：只補使用者「從未見過」的新預設分類；使用者主動刪除的不會復活
     private func migrateAddNewDefaultCategories() {
+        let defaults = UserDefaults.standard
+        let seenKeys = defaults.stringArray(forKey: seenDefaultKeysKey).map(Set.init) ?? legacyDefaultKeys
         let existingKeys = Set(categories.compactMap { $0.categoryKey })
         let newDefaults = defaultCategories.filter {
             guard let key = $0.categoryKey else { return false }
-            return !existingKeys.contains(key)
+            return !seenKeys.contains(key) && !existingKeys.contains(key)
         }
+        let allDefaultKeys = defaultCategories.compactMap { $0.categoryKey }
+        defaults.set(Array(seenKeys.union(allDefaultKeys)), forKey: seenDefaultKeysKey)
 
         guard !newDefaults.isEmpty else { return }
 
@@ -439,6 +457,8 @@ class CategoryManager: ObservableObject {
     }
 
     func deleteCategory(_ category: CustomCategory) {
+        guard category.categoryKey != Self.fallbackCategoryKey else { return }
+
         // 移除該分類下所有應用的映射
         appCategoryMap = appCategoryMap.filter { $0.value != category.id }
         saveAppCategoryMap()
@@ -463,8 +483,9 @@ class CategoryManager: ObservableObject {
             return category
         }
 
-        // 否則使用自動分類
+        // 否則使用自動分類；比對到的分類已被刪除時退回「其他」，避免 App 從資料夾中消失
         return autoCategorizePapp(appName: appName, path: appPath)
+            ?? findCategory(byKey: Self.fallbackCategoryKey)
     }
 
     private func findCategory(byKey key: String) -> CustomCategory? {
@@ -861,12 +882,52 @@ class LauncherViewModel: ObservableObject {
     }
 }
 
+// MARK: - macOS 12 Compatibility
+// symbolEffect 需 macOS 14（.rotate 需 15）、雙參數 onChange 需 macOS 14；舊系統略過動畫
+extension View {
+    @ViewBuilder
+    func compatBounce<V: Equatable>(value: V) -> some View {
+        if #available(macOS 14.0, *) {
+            symbolEffect(.bounce, value: value)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func compatRotate<V: Equatable>(value: V) -> some View {
+        if #available(macOS 15.0, *) {
+            symbolEffect(.rotate, value: value)
+        } else {
+            compatBounce(value: value)
+        }
+    }
+
+    @ViewBuilder
+    func compatPulse(isActive: Bool) -> some View {
+        if #available(macOS 14.0, *) {
+            symbolEffect(.pulse, isActive: isActive)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func compatOnChange<V: Equatable>(of value: V, perform action: @escaping () -> Void) -> some View {
+        if #available(macOS 14.0, *) {
+            onChange(of: value) { action() }
+        } else {
+            onChange(of: value) { _ in action() }
+        }
+    }
+}
+
 // MARK: - Settings View
 struct SettingsView: View {
     @ObservedObject var settings = LauncherSettings.shared
     @ObservedObject var localization = LocalizationManager.shared
+    @ObservedObject var recorder = HotkeyRecorder.shared
     @Binding var isPresented: Bool
-    @State private var isRecordingHotkey = false
 
     // Animation triggers
     @State private var iconSizeBounce = 0
@@ -884,7 +945,7 @@ struct SettingsView: View {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 20))
                     .foregroundColor(.blue)
-                    .symbolEffect(.rotate, value: isPresented)
+                    .compatRotate(value: isPresented)
                 Text(L("settings"))
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.primary)
@@ -893,7 +954,7 @@ struct SettingsView: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 24))
                         .foregroundColor(.secondary)
-                        .symbolEffect(.bounce, value: isPresented)
+                        .compatBounce(value: isPresented)
                 }
                 .buttonStyle(.plain)
             }
@@ -917,13 +978,13 @@ struct SettingsView: View {
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
                             Slider(value: $settings.iconSize, in: 48...128, step: 8)
                                 .tint(.blue)
-                                .onChange(of: settings.iconSize) { _, _ in
+                                .compatOnChange(of: settings.iconSize) {
                                     iconSizeBounce += 1
                                 }
                             Image(systemName: "app.fill")
                                 .font(.system(size: settings.iconSize / 3))
                                 .foregroundColor(.blue.opacity(0.6))
-                                .symbolEffect(.bounce, value: iconSizeBounce)
+                                .compatBounce(value: iconSizeBounce)
                         }
                     }
 
@@ -940,7 +1001,7 @@ struct SettingsView: View {
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
                             Slider(value: $settings.gridSpacing, in: 10...60, step: 5)
                                 .tint(.green)
-                                .onChange(of: settings.gridSpacing) { _, _ in
+                                .compatOnChange(of: settings.gridSpacing) {
                                     spacingBounce += 1
                                 }
                         }
@@ -959,7 +1020,7 @@ struct SettingsView: View {
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
                             Slider(value: $settings.backgroundOpacity, in: 0.1...0.9, step: 0.1)
                                 .tint(.purple)
-                                .onChange(of: settings.backgroundOpacity) { _, _ in
+                                .compatOnChange(of: settings.backgroundOpacity) {
                                     opacityBounce += 1
                                 }
                         }
@@ -974,7 +1035,7 @@ struct SettingsView: View {
                         Toggle(L("groupByCategory"), isOn: $settings.showCategories)
                             .toggleStyle(.switch)
                             .tint(.orange)
-                            .onChange(of: settings.showCategories) { _, _ in
+                            .compatOnChange(of: settings.showCategories) {
                                 categoryBounce += 1
                             }
                     }
@@ -991,7 +1052,7 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.segmented)
-                        .onChange(of: settings.launchBehavior) { _, _ in
+                        .compatOnChange(of: settings.launchBehavior) {
                             launchBehaviorBounce += 1
                         }
                     }
@@ -1010,37 +1071,46 @@ struct SettingsView: View {
                                 .padding(.vertical, 10)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(isRecordingHotkey ? Color.red.opacity(0.2) : Color(nsColor: NSColor.controlBackgroundColor))
+                                        .fill(recorder.isRecording ? Color.red.opacity(0.2) : Color(nsColor: NSColor.controlBackgroundColor))
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 8)
-                                                .stroke(isRecordingHotkey ? Color.red : Color.gray.opacity(0.3), lineWidth: 1)
+                                                .stroke(recorder.isRecording ? Color.red : Color.gray.opacity(0.3), lineWidth: 1)
                                         )
                                 )
-                                .symbolEffect(.pulse, isActive: isRecordingHotkey)
+                                .compatPulse(isActive: recorder.isRecording)
 
                             Spacer()
 
                             Button(action: {
-                                isRecordingHotkey.toggle()
-                                hotkeyBounce += 1
-                                if isRecordingHotkey {
-                                    startRecordingHotkey()
+                                if recorder.isRecording {
+                                    recorder.cancel()
+                                } else {
+                                    recorder.start()
                                 }
                             }) {
                                 HStack(spacing: 6) {
-                                    Image(systemName: isRecordingHotkey ? "stop.circle.fill" : "record.circle")
-                                        .symbolEffect(.bounce, value: hotkeyBounce)
-                                    Text(isRecordingHotkey ? L("cancel") : L("modify"))
+                                    Image(systemName: recorder.isRecording ? "stop.circle.fill" : "record.circle")
+                                        .compatBounce(value: hotkeyBounce)
+                                    Text(recorder.isRecording ? L("cancel") : L("modify"))
                                 }
-                                .foregroundColor(isRecordingHotkey ? .red : .blue)
+                                .foregroundColor(recorder.isRecording ? .red : .blue)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(isRecordingHotkey ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
+                                        .fill(recorder.isRecording ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
                                 )
                             }
                             .buttonStyle(.plain)
+                            .compatOnChange(of: recorder.isRecording) {
+                                hotkeyBounce += 1
+                            }
+                        }
+
+                        if let error = recorder.errorMessage {
+                            Text(error)
+                                .font(.system(size: 12))
+                                .foregroundColor(.red)
                         }
                     }
 
@@ -1056,7 +1126,7 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.segmented)
-                        .onChange(of: localization.currentLanguage) { _, _ in
+                        .compatOnChange(of: localization.currentLanguage) {
                             languageBounce += 1
                         }
                     }
@@ -1079,28 +1149,9 @@ struct SettingsView: View {
                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    func startRecordingHotkey() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if self.isRecordingHotkey {
-                var modifiers: UInt32 = 0
-                if event.modifierFlags.contains(.command) { modifiers |= UInt32(cmdKey) }
-                if event.modifierFlags.contains(.option) { modifiers |= UInt32(optionKey) }
-                if event.modifierFlags.contains(.control) { modifiers |= UInt32(controlKey) }
-                if event.modifierFlags.contains(.shift) { modifiers |= UInt32(shiftKey) }
-
-                self.settings.hotkeyKeyCode = UInt32(event.keyCode)
-                self.settings.hotkeyModifiers = modifiers
-                self.isRecordingHotkey = false
-                self.hotkeyBounce += 1
-
-                // Re-register hotkey
-                HotkeyManager.shared.registerHotkey()
-
-                return nil
-            }
-            return event
+        .onDisappear {
+            // 面板被 ESC / 背景點擊 / 關閉鈕收起時，一併結束錄製，避免下一個按鍵被當成快捷鍵
+            recorder.cancel()
         }
     }
 }
@@ -1118,7 +1169,7 @@ struct AnimatedSettingSection<Content: View>: View {
                 Image(systemName: icon)
                     .font(.system(size: 18))
                     .foregroundColor(.blue)
-                    .symbolEffect(.bounce, value: animationTrigger)
+                    .compatBounce(value: animationTrigger)
                     .frame(width: 24)
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
@@ -1144,11 +1195,24 @@ struct CategoryManagerView: View {
     @Binding var isPresented: Bool
     @ObservedObject var categoryManager = CategoryManager.shared
     @ObservedObject var localization = LocalizationManager.shared
+    @ObservedObject var viewModel = LauncherViewModel.shared
     @State private var showAddCategory = false
     @State private var editingCategory: CustomCategory? = nil
     @State private var showAppSelector: CustomCategory? = nil
 
+    // 共用已掃描的 App 清單，一次算出各分類數量（分類或指派變動時自動重算）
+    private var appCounts: [UUID: Int] {
+        var counts: [UUID: Int] = [:]
+        for app in viewModel.apps {
+            if let id = app.category?.id {
+                counts[id, default: 0] += 1
+            }
+        }
+        return counts
+    }
+
     var body: some View {
+        let counts = appCounts
         VStack(spacing: 0) {
             // Header - 固定在頂部
             HStack {
@@ -1177,6 +1241,7 @@ struct CategoryManagerView: View {
                     ForEach(categoryManager.categories) { category in
                         CategoryRowView(
                             category: category,
+                            appCount: counts[category.id] ?? 0,
                             onEdit: { editingCategory = category },
                             onManageApps: { showAppSelector = category },
                             onDelete: {
@@ -1283,21 +1348,13 @@ struct CategoryActionButton: View {
 // MARK: - Category Row View
 struct CategoryRowView: View {
     let category: CustomCategory
+    let appCount: Int
     let onEdit: () -> Void
     let onManageApps: () -> Void
     let onDelete: () -> Void
 
     @State private var isHovered = false
-    @State private var appCount: Int = 0
-    @ObservedObject var categoryManager = CategoryManager.shared
     @ObservedObject var localization = LocalizationManager.shared
-
-    func calculateAppCount() -> Int {
-        let apps = AppScanner.scanApplications()
-        return apps.filter { app in
-            categoryManager.getCategoryForApp(appPath: app.path, appName: app.name)?.id == category.id
-        }.count
-    }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -1333,12 +1390,14 @@ struct CategoryRowView: View {
                     action: onEdit
                 )
 
-                CategoryActionButton(
-                    icon: "trash",
-                    color: .red,
-                    helpText: L("deleteCategory"),
-                    action: onDelete
-                )
+                if category.categoryKey != CategoryManager.fallbackCategoryKey {
+                    CategoryActionButton(
+                        icon: "trash",
+                        color: .red,
+                        helpText: L("deleteCategory"),
+                        action: onDelete
+                    )
+                }
             }
         }
         .padding(14)
@@ -1354,9 +1413,6 @@ struct CategoryRowView: View {
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering
             }
-        }
-        .onAppear {
-            appCount = calculateAppCount()
         }
     }
 }
@@ -1515,14 +1571,14 @@ struct AppSelectorSheet: View {
     let category: CustomCategory
     @Binding var isPresented: Bool
     @ObservedObject var categoryManager = CategoryManager.shared
+    @ObservedObject var viewModel = LauncherViewModel.shared
     @State private var searchText = ""
-    @State private var apps: [AppItem] = []
 
     var filteredApps: [AppItem] {
         if searchText.isEmpty {
-            return apps
+            return viewModel.apps
         }
-        return apps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        return viewModel.apps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
 
     var body: some View {
@@ -1575,9 +1631,6 @@ struct AppSelectorSheet: View {
             .background(Color(nsColor: NSColor.controlBackgroundColor).opacity(0.3))
         }
         .frame(width: 450, height: 500)
-        .onAppear {
-            apps = AppScanner.scanApplications()
-        }
     }
 }
 
@@ -2211,33 +2264,88 @@ class DirectoryMonitor {
 class HotkeyManager {
     static let shared = HotkeyManager()
     private var eventHotKey: EventHotKeyRef?
+    private var registeredKeyCode: UInt32?
+    private var registeredModifiers: UInt32?
 
     func registerHotkey() {
-        // Unregister existing
-        if let hotKey = eventHotKey {
-            UnregisterEventHotKey(hotKey)
-            eventHotKey = nil
+        let settings = LauncherSettings.shared
+        update(keyCode: settings.hotkeyKeyCode, modifiers: settings.hotkeyModifiers)
+    }
+
+    /// 先註冊新組合、成功後才解除舊的；失敗時舊快捷鍵維持有效
+    @discardableResult
+    func update(keyCode: UInt32, modifiers: UInt32) -> OSStatus {
+        if eventHotKey != nil, keyCode == registeredKeyCode, modifiers == registeredModifiers {
+            return noErr
+        }
+
+        let hotKeyID = EventHotKeyID(signature: OSType(0x4C4E4348), id: 1) // "LNCH"
+        var newRef: EventHotKeyRef?
+        let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &newRef)
+        guard status == noErr else { return status }
+
+        if let oldRef = eventHotKey {
+            UnregisterEventHotKey(oldRef)
+        }
+        eventHotKey = newRef
+        registeredKeyCode = keyCode
+        registeredModifiers = modifiers
+        return noErr
+    }
+}
+
+// MARK: - Hotkey Recorder
+/// 錄製新快捷鍵：ESC 取消；註冊失敗時不寫入設定並回報原因
+class HotkeyRecorder: ObservableObject {
+    static let shared = HotkeyRecorder()
+    @Published private(set) var isRecording = false
+    @Published private(set) var errorMessage: String?
+    private var monitor: Any?
+
+    func start() {
+        guard monitor == nil else { return }
+        errorMessage = nil
+        isRecording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.capture(event)
+            return nil
+        }
+    }
+
+    func cancel() {
+        if let monitor = monitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        monitor = nil
+        isRecording = false
+    }
+
+    private func capture(_ event: NSEvent) {
+        defer { cancel() }
+        guard event.keyCode != UInt16(kVK_Escape) else { return }
+
+        let keyCode = UInt32(event.keyCode)
+        let modifiers = Self.carbonModifiers(from: event.modifierFlags)
+        let status = HotkeyManager.shared.update(keyCode: keyCode, modifiers: modifiers)
+        guard status == noErr else {
+            errorMessage = status == OSStatus(eventHotKeyExistsErr)
+                ? L("hotkeyInUse")
+                : L("hotkeyRegisterFailed", Int(status))
+            return
         }
 
         let settings = LauncherSettings.shared
+        settings.hotkeyKeyCode = keyCode
+        settings.hotkeyModifiers = modifiers
+    }
 
-        var hotKeyID = EventHotKeyID()
-        hotKeyID.signature = OSType(0x4C4E4348) // "LNCH"
-        hotKeyID.id = 1
-
-        var eventHotKeyRef: EventHotKeyRef?
-        let status = RegisterEventHotKey(
-            settings.hotkeyKeyCode,
-            settings.hotkeyModifiers,
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &eventHotKeyRef
-        )
-
-        if status == noErr {
-            eventHotKey = eventHotKeyRef
-        }
+    private static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
+        var modifiers: UInt32 = 0
+        if flags.contains(.command) { modifiers |= UInt32(cmdKey) }
+        if flags.contains(.option) { modifiers |= UInt32(optionKey) }
+        if flags.contains(.control) { modifiers |= UInt32(controlKey) }
+        if flags.contains(.shift) { modifiers |= UInt32(shiftKey) }
+        return modifiers
     }
 }
 
@@ -2290,38 +2398,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Register ESC key handler once
         escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard event.keyCode == 53 else { return event } // ESC key
+            guard event.keyCode == UInt16(kVK_Escape) else { return event }
             guard let self = self, let window = self.window, window.isVisible else { return event }
-
-            let viewModel = LauncherViewModel.shared
-            let settings = LauncherSettings.shared
-
-            if settings.showCategories {
-                switch viewModel.route {
-                case .folderDetail:
-                    if !viewModel.folderQuery.isEmpty {
-                        viewModel.folderQuery = ""
-                        return nil
-                    }
-                    viewModel.navigateToHome()
-                    return nil
-
-                case .home:
-                    if !viewModel.searchText.isEmpty {
-                        viewModel.searchText = ""
-                        return nil
-                    }
-                    window.orderOut(nil)
-                    return nil
-                }
-            } else {
-                if !viewModel.searchText.isEmpty {
-                    viewModel.searchText = ""
-                    return nil
-                }
-                window.orderOut(nil)
-                return nil
-            }
+            return self.handleEscape(in: window) ? nil : event
         }
 
         // Monitor app directories for changes
@@ -2333,6 +2412,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.showWindow()
         }
+    }
+
+    /// ESC 由最上層往下處理：sheet → 快捷鍵錄製 → 設定/分類面板 → 資料夾搜尋 → 資料夾 → 首頁搜尋 → 主視窗
+    /// 回傳 false 表示不攔截，讓事件交給 sheet 的取消鍵或快捷鍵錄製器
+    private func handleEscape(in window: NSWindow) -> Bool {
+        if window.attachedSheet != nil || HotkeyRecorder.shared.isRecording {
+            return false
+        }
+
+        let viewModel = LauncherViewModel.shared
+        if viewModel.showSettings {
+            viewModel.showSettings = false
+        } else if viewModel.showCategoryManager {
+            viewModel.showCategoryManager = false
+        } else if LauncherSettings.shared.showCategories, case .folderDetail = viewModel.route {
+            if viewModel.folderQuery.isEmpty {
+                viewModel.navigateToHome()
+            } else {
+                viewModel.folderQuery = ""
+            }
+        } else if !viewModel.searchText.isEmpty {
+            viewModel.searchText = ""
+        } else {
+            window.orderOut(nil)
+        }
+        return true
     }
 
     @objc func toggleWindow() {
@@ -2380,6 +2485,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.route = .home
         viewModel.folderQuery = ""
         viewModel.searchText = ""
+        viewModel.showSettings = false
+        viewModel.showCategoryManager = false
 
         NSApplication.shared.activate(ignoringOtherApps: true)
     }

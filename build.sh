@@ -7,12 +7,20 @@ set -e
 
 echo "🔨 開始編譯 FullScreenLauncher..."
 
-# 編譯 Swift 程式碼
-swiftc -o FullScreenLauncher main.swift \
-    -framework Cocoa \
-    -framework SwiftUI \
-    -framework Carbon \
-    -O
+# 最低系統版本以 Info.plist 為準，避免 swiftc 預設用本機系統版本
+MIN_MACOS=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" Info.plist)
+
+# 編譯 Swift 程式碼（Apple Silicon + Intel universal binary）
+for ARCH in arm64 x86_64; do
+    swiftc -o "FullScreenLauncher-$ARCH" main.swift \
+        -framework Cocoa \
+        -framework SwiftUI \
+        -framework Carbon \
+        -target "$ARCH-apple-macos$MIN_MACOS" \
+        -O
+done
+lipo -create -output FullScreenLauncher FullScreenLauncher-arm64 FullScreenLauncher-x86_64
+rm FullScreenLauncher-arm64 FullScreenLauncher-x86_64
 
 echo "📦 建立應用程式包..."
 
