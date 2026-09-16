@@ -55,6 +55,8 @@ class LocalizationManager: ObservableObject {
             "cancel": "取消",
             "modify": "修改",
             "hotkeyInUse": "此快捷鍵已被佔用，已保留原本的快捷鍵",
+            "hotkeyNeedsModifier": "請至少加上一個修飾鍵（⌘ ⌥ ⌃ ⇧），或直接使用 F1–F20",
+            "hotkeySystemReserved": "這是 macOS 系統快捷鍵，按下時不會傳給啟動器",
             "hotkeyRegisterFailed": "無法註冊此快捷鍵（錯誤碼 %d），已保留原本的快捷鍵",
             "save": "儲存",
             "add": "新增",
@@ -120,6 +122,8 @@ class LocalizationManager: ObservableObject {
             "cancel": "Cancel",
             "modify": "Modify",
             "hotkeyInUse": "This shortcut is already in use. Kept the previous one.",
+            "hotkeyNeedsModifier": "Add at least one modifier (⌘ ⌥ ⌃ ⇧), or use F1–F20.",
+            "hotkeySystemReserved": "This is a macOS system shortcut and won't reach the launcher.",
             "hotkeyRegisterFailed": "Couldn't register this shortcut (error %d). Kept the previous one.",
             "save": "Save",
             "add": "Add",
@@ -262,6 +266,8 @@ class LauncherSettings: ObservableObject {
             0x7A: "F1", 0x78: "F2", 0x63: "F3", 0x76: "F4",
             0x60: "F5", 0x61: "F6", 0x62: "F7", 0x64: "F8",
             0x65: "F9", 0x6D: "F10", 0x67: "F11", 0x6F: "F12",
+            0x69: "F13", 0x6B: "F14", 0x71: "F15", 0x6A: "F16",
+            0x40: "F17", 0x4F: "F18", 0x50: "F19", 0x5A: "F20",
 
             // Letters A-Z
             0x00: "A", 0x0B: "B", 0x08: "C", 0x02: "D", 0x0E: "E",
@@ -2326,6 +2332,18 @@ class HotkeyRecorder: ObservableObject {
 
         let keyCode = UInt32(event.keyCode)
         let modifiers = Self.carbonModifiers(from: event.modifierFlags)
+
+        // 無修飾鍵的一般按鍵會攔截全系統的輸入（打字時到處觸發），只放行 F 鍵
+        guard modifiers != 0 || Self.functionKeyCodes.contains(keyCode) else {
+            errorMessage = L("hotkeyNeedsModifier")
+            return
+        }
+        // 系統快捷鍵（如 ⌘Space）註冊時不會失敗，但按下去永遠不會傳到這裡
+        guard !Self.isSystemShortcut(keyCode: keyCode, modifiers: modifiers) else {
+            errorMessage = L("hotkeySystemReserved")
+            return
+        }
+
         let status = HotkeyManager.shared.update(keyCode: keyCode, modifiers: modifiers)
         guard status == noErr else {
             errorMessage = status == OSStatus(eventHotKeyExistsErr)
@@ -2337,6 +2355,29 @@ class HotkeyRecorder: ObservableObject {
         let settings = LauncherSettings.shared
         settings.hotkeyKeyCode = keyCode
         settings.hotkeyModifiers = modifiers
+    }
+
+    // F1–F20；這些鍵單獨當快捷鍵不會干擾打字
+    private static let functionKeyCodes: Set<UInt32> = [
+        0x7A, 0x78, 0x63, 0x76, 0x60, 0x61, 0x62, 0x64, 0x65, 0x6D, 0x67, 0x6F,
+        0x69, 0x6B, 0x71, 0x6A, 0x40, 0x4F, 0x50, 0x5A
+    ]
+
+    private static let modifierMask = UInt32(cmdKey | shiftKey | optionKey | controlKey)
+
+    /// 比對 macOS 系統快捷鍵（Spotlight、Mission Control 等）
+    private static func isSystemShortcut(keyCode: UInt32, modifiers: UInt32) -> Bool {
+        var raw: Unmanaged<CFArray>?
+        guard CopySymbolicHotKeys(&raw) == noErr,
+              let entries = raw?.takeRetainedValue() as? [[String: Any]] else { return false }
+
+        return entries.contains { entry in
+            guard entry[kHISymbolicHotKeyEnabled as String] as? Bool == true,
+                  let code = entry[kHISymbolicHotKeyCode as String] as? Int,
+                  let mods = entry[kHISymbolicHotKeyModifiers as String] as? Int else { return false }
+            return UInt32(code) == keyCode
+                && UInt32(mods) & modifierMask == modifiers & modifierMask
+        }
     }
 
     private static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
