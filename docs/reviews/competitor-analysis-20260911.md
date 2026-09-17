@@ -75,10 +75,22 @@
 | 已安裝的 app | 正常執行、無 crash report；migration 已寫入 `seenDefaultCategoryKeys`（10 個） |
 
 **已知限制：**
-- **R5 的失敗路徑在實務上幾乎不會發生**（已實測）：
-  - 跨程序註冊同一組合一律回傳 `noErr`，即使對方用 `kEventHotKeyExclusive`
-  - 註冊系統保留的 ⌘Space 也回傳 `noErr`
-  - 只有同一程序重複註冊才會得到 `-9878`
+- **R5 的失敗路徑在目前設定下不會被第三方衝突觸發**（2026-09-17 以兩個 bundled .app 實測，macOS 26.6.2）：
+
+  | A（先註冊） | B（後註冊） | B 的結果 |
+  |---|---|---|
+  | 一般 | 一般 | `noErr` |
+  | `kEventHotKeyExclusive` | 一般 | `noErr` |
+  | 一般 | `kEventHotKeyExclusive` | `noErr` |
+  | `kEventHotKeyExclusive` | `kEventHotKeyExclusive` | **`-9878`** |
+
+  - `eventHotKeyExistsErr` 只在**雙方都用 `kEventHotKeyExclusive`** 時出現
+  - 本專案目前以 option `0`（非 exclusive）註冊，所以第三方 app 的衝突不會回報錯誤
+  - 註冊系統保留的 ⌘Space 也回傳 `noErr`（因此才需要 `CopySymbolicHotKeys` 預先比對）
+  - 同一程序重複註冊會得到 `-9878`（`update()` 的交易式更新即以此驗證）
+  - 若改用 `kEventHotKeyExclusive` 註冊，可偵測到同樣採 exclusive 的第三方 app；
+    但對非 exclusive 的第三方仍然無感（case 3），且啟動時若真的衝突，
+    快捷鍵會註冊失敗而不是與對方共存 —— 尚未決定是否要改
   - 所以使用者選到被其他 app 或系統佔用的組合時，會「設定成功但按了沒反應」
   - **已於 `680daf6` 補上錄製階段的驗證**：
     - 比對 `CopySymbolicHotKeys()`（本機實測 170 個啟用中的系統快捷鍵），擋掉 ⌘Space 這類組合
