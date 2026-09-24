@@ -57,6 +57,27 @@ class LocalizationManager: ObservableObject {
             "hotkeyInUse": "此快捷鍵已被佔用，已保留原本的快捷鍵",
             "hotkeyNeedsModifier": "請至少加上一個修飾鍵（⌘ ⌥ ⌃ ⇧），或直接使用 F1–F20",
             "hotkeySystemReserved": "這是 macOS 系統快捷鍵，按下時不會傳給啟動器",
+            "hotkeyRecordingHint": "按下新的組合鍵，或按 ESC 取消",
+            "hotkeyRecordingTimeout": "沒有收到按鍵，已結束錄製",
+            "resetSettings": "恢復預設設定",
+            "resetSettingsConfirm": "恢復預設設定？",
+            "resetSettingsMessage": "圖標大小、間距、背景深度、啟動行為與快捷鍵都會回到預設值。",
+            "reset": "恢復預設",
+            "close": "關閉",
+            "delete": "刪除",
+            "deleteCategoryConfirm": "刪除「%@」？",
+            "deleteCategoryMessage": "這個分類裡的 %d 個應用程式會回到自動分類。這個動作無法復原。",
+            "resetCategoriesConfirm": "重置為預設分類？",
+            "resetCategoriesMessage": "自訂分類會被移除，%d 個手動指派也會一併清除。這個動作無法復原。",
+            "noResults": "找不到「%@」",
+            "noResultsHint": "換個關鍵字，或按 ESC 清除",
+            "emptyCategory": "這個分類還沒有應用程式",
+            "emptyCategoryHint": "到分類管理指派應用程式",
+            "noApps": "沒有掃描到應用程式",
+            "noAppsHint": "按右上角重新掃描",
+            "refresh": "重新掃描",
+            "clearSearch": "清除",
+            "inCategory": "在「%@」裡",
             "hotkeyRegisterFailed": "無法註冊此快捷鍵（錯誤碼 %d），已保留原本的快捷鍵",
             "save": "儲存",
             "add": "新增",
@@ -82,11 +103,8 @@ class LocalizationManager: ObservableObject {
             "all": "全部",
 
             // Hints
-            "hintEscClose": "按 ESC 關閉",
-            "hintEscBack": "按 ESC 返回",
+            "hintKeyboard": "↑ ↓ ← → 選擇，⏎ 開啟，ESC 關閉",
             "hintHotkey": "快捷鍵",
-            "hintClickCategory": "點擊分類進入",
-            "hintClickSettings": "點擊 ⚙️ 開啟設定",
 
             // Menu
             "openLauncher": "開啟啟動器",
@@ -124,6 +142,27 @@ class LocalizationManager: ObservableObject {
             "hotkeyInUse": "This shortcut is already in use. Kept the previous one.",
             "hotkeyNeedsModifier": "Add at least one modifier (⌘ ⌥ ⌃ ⇧), or use F1–F20.",
             "hotkeySystemReserved": "This is a macOS system shortcut and won't reach the launcher.",
+            "hotkeyRecordingHint": "Press a new combination, or press ESC to cancel",
+            "hotkeyRecordingTimeout": "No key detected. Recording stopped.",
+            "resetSettings": "Reset settings",
+            "resetSettingsConfirm": "Reset settings?",
+            "resetSettingsMessage": "Icon size, spacing, background depth, launch behavior and the shortcut all return to their defaults.",
+            "reset": "Reset",
+            "close": "Close",
+            "delete": "Delete",
+            "deleteCategoryConfirm": "Delete \"%@\"?",
+            "deleteCategoryMessage": "The %d apps in this category go back to automatic sorting. This can't be undone.",
+            "resetCategoriesConfirm": "Reset to default categories?",
+            "resetCategoriesMessage": "Custom categories are removed, along with %d manual assignments. This can't be undone.",
+            "noResults": "No apps match \"%@\"",
+            "noResultsHint": "Try another search, or press ESC to clear",
+            "emptyCategory": "No apps in this category yet",
+            "emptyCategoryHint": "Assign apps in the category manager",
+            "noApps": "No apps found",
+            "noAppsHint": "Rescan from the top right",
+            "refresh": "Rescan",
+            "clearSearch": "Clear",
+            "inCategory": "in %@",
             "hotkeyRegisterFailed": "Couldn't register this shortcut (error %d). Kept the previous one.",
             "save": "Save",
             "add": "Add",
@@ -149,11 +188,8 @@ class LocalizationManager: ObservableObject {
             "all": "All",
 
             // Hints
-            "hintEscClose": "Press ESC to close",
-            "hintEscBack": "Press ESC to go back",
+            "hintKeyboard": "Arrow keys to select, Return to open, ESC to close",
             "hintHotkey": "Hotkey",
-            "hintClickCategory": "Click category to enter",
-            "hintClickSettings": "Click ⚙️ for settings",
 
             // Menu
             "openLauncher": "Open Launcher",
@@ -233,6 +269,10 @@ class LauncherSettings: ObservableObject {
     @Published var launchBehavior: LaunchBehavior {
         didSet { UserDefaults.standard.set(launchBehavior.rawValue, forKey: "launchBehavior") }
     }
+    /// 開啟次數，用來決定是否還要顯示操作提示
+    @Published var openCount: Int {
+        didSet { UserDefaults.standard.set(openCount, forKey: "openCount") }
+    }
 
     init() {
         self.iconSize = UserDefaults.standard.object(forKey: "iconSize") as? CGFloat ?? 64
@@ -241,6 +281,7 @@ class LauncherSettings: ObservableObject {
         self.backgroundOpacity = UserDefaults.standard.object(forKey: "backgroundOpacity") as? Double ?? 0.6
         self.hotkeyKeyCode = UserDefaults.standard.object(forKey: "hotkeyKeyCode") as? UInt32 ?? 0x7A  // F1
         self.hotkeyModifiers = UserDefaults.standard.object(forKey: "hotkeyModifiers") as? UInt32 ?? UInt32(cmdKey | optionKey)
+        self.openCount = UserDefaults.standard.integer(forKey: "openCount")
 
         if let behaviorString = UserDefaults.standard.string(forKey: "launchBehavior"),
            let behavior = LaunchBehavior(rawValue: behaviorString) {
@@ -248,6 +289,17 @@ class LauncherSettings: ObservableObject {
         } else {
             self.launchBehavior = .closeAfterLaunch
         }
+    }
+
+    func resetToDefaults() {
+        iconSize = 64
+        gridSpacing = 25
+        showCategories = true
+        backgroundOpacity = 0.6
+        launchBehavior = .closeAfterLaunch
+        hotkeyKeyCode = 0x7A   // F1
+        hotkeyModifiers = UInt32(cmdKey | optionKey)
+        HotkeyManager.shared.registerHotkey()
     }
 
     var hotkeyDescription: String {
@@ -691,16 +743,25 @@ class CategoryManager: ObservableObject {
 // MARK: - App Model
 class AppItem: Identifiable, ObservableObject {
     let id = UUID()
+    /// 顯示用的在地化名稱（中文系統下 Calculator.app 會是「計算機」）
     let name: String
+    /// 檔名（去掉 .app），分類關鍵字與搜尋都會用到
+    let fileName: String
     let path: String
     let icon: NSImage
 
     var category: CustomCategory? {
-        CategoryManager.shared.getCategoryForApp(appPath: path, appName: name)
+        CategoryManager.shared.getCategoryForApp(appPath: path, appName: fileName)
     }
 
-    init(name: String, path: String, icon: NSImage) {
+    /// 在地化名稱與英文檔名都能搜到
+    func matches(_ query: String) -> Bool {
+        name.localizedCaseInsensitiveContains(query) || fileName.localizedCaseInsensitiveContains(query)
+    }
+
+    init(name: String, fileName: String, path: String, icon: NSImage) {
         self.name = name
+        self.fileName = fileName
         self.path = path
         self.icon = icon
     }
@@ -726,21 +787,14 @@ class AppScanner {
                 let fullPath = "\(directory)/\(item)"
 
                 if item.hasSuffix(".app") {
-                    let appName = item.replacingOccurrences(of: ".app", with: "")
-                    let icon = NSWorkspace.shared.icon(forFile: fullPath)
-                    icon.size = NSSize(width: 128, height: 128)
-                    apps.append(AppItem(name: appName, path: fullPath, icon: icon))
+                    apps.append(makeItem(path: fullPath, fileName: item))
                 } else if directory == "/Applications" || directory == NSHomeDirectory() + "/Applications" {
                     // 掃描子目錄一層深度（Adobe 等 app 安裝在子目錄中）
                     var isDir: ObjCBool = false
                     if fileManager.fileExists(atPath: fullPath, isDirectory: &isDir), isDir.boolValue {
                         if let subContents = try? fileManager.contentsOfDirectory(atPath: fullPath) {
                             for subItem in subContents where subItem.hasSuffix(".app") {
-                                let subFullPath = "\(fullPath)/\(subItem)"
-                                let appName = subItem.replacingOccurrences(of: ".app", with: "")
-                                let icon = NSWorkspace.shared.icon(forFile: subFullPath)
-                                icon.size = NSSize(width: 128, height: 128)
-                                apps.append(AppItem(name: appName, path: subFullPath, icon: icon))
+                                apps.append(makeItem(path: "\(fullPath)/\(subItem)", fileName: subItem))
                             }
                         }
                     }
@@ -750,6 +804,61 @@ class AppScanner {
 
         return apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
+
+    private static func makeItem(path: String, fileName: String) -> AppItem {
+        let icon = NSWorkspace.shared.icon(forFile: path)
+        icon.size = NSSize(width: 128, height: 128)
+        let bare = fileName.hasSuffix(".app") ? String(fileName.dropLast(4)) : fileName
+        return AppItem(name: localizedName(atPath: path) ?? bare, fileName: bare, path: path, icon: icon)
+    }
+
+    /// 依系統語言取得 App 的在地化名稱（「計算機」而不是 Calculator）。
+    /// `FileManager.displayName` 不可靠：開啟「顯示所有副檔名」時會帶 .app，也不會在地化，
+    /// 名稱實際上放在 App bundle 的 InfoPlist.loctable 或 <lang>.lproj/InfoPlist.strings。
+    private static func localizedName(atPath path: String) -> String? {
+        let resources = path + "/Contents/Resources"
+
+        if let table = NSDictionary(contentsOfFile: resources + "/InfoPlist.loctable") as? [String: Any] {
+            for key in localeKeys {
+                if let entry = table[key] as? [String: Any],
+                   let name = (entry["CFBundleDisplayName"] ?? entry["CFBundleName"]) as? String,
+                   !name.isEmpty {
+                    return name
+                }
+            }
+        }
+
+        for key in localeKeys {
+            let strings = resources + "/\(key).lproj/InfoPlist.strings"
+            if let entry = NSDictionary(contentsOfFile: strings) as? [String: Any],
+               let name = (entry["CFBundleDisplayName"] ?? entry["CFBundleName"]) as? String,
+               !name.isEmpty {
+                return name
+            }
+        }
+        return nil
+    }
+
+    /// 系統偏好語言展開成 bundle 內可能出現的各種寫法（zh-Hant-TW → zh_TW、zh-Hant、zh…）
+    private static let localeKeys: [String] = {
+        var keys: [String] = []
+        for identifier in Locale.preferredLanguages {
+            let locale = Locale(identifier: identifier)
+            let language = locale.languageCode ?? identifier
+            let candidates = [
+                identifier,
+                identifier.replacingOccurrences(of: "-", with: "_"),
+                locale.regionCode.map { "\(language)_\($0)" },
+                locale.regionCode.map { "\(language)-\($0)" },
+                locale.scriptCode.map { "\(language)-\($0)" },
+                language
+            ]
+            for candidate in candidates.compactMap({ $0 }) where !keys.contains(candidate) {
+                keys.append(candidate)
+            }
+        }
+        return keys
+    }()
 }
 
 // MARK: - Folder Group Model
@@ -785,45 +894,32 @@ class LauncherViewModel: ObservableObject {
     static let shared = LauncherViewModel()
 
     @Published var apps: [AppItem] = []
-    @Published var searchText: String = ""
-    @Published var selectedCategory: CustomCategory? = nil
+    @Published var searchText: String = "" {
+        didSet { if searchText != oldValue { selection = 0 } }
+    }
     @Published var showSettings: Bool = false
     @Published var showCategoryManager: Bool = false
 
     // Folder browsing state
     @Published var route: LauncherRoute = .home
-    @Published var folderQuery: String = ""
+    @Published var folderQuery: String = "" {
+        didSet { if folderQuery != oldValue { selection = 0 } }
+    }
+
+    // 鍵盤導航：目前選取的格子，以及每列幾個（由格線在排版時回報）
+    @Published var selection: Int = 0
+    @Published var columns: Int = 6
 
     @ObservedObject var categoryManager = CategoryManager.shared
 
     var filteredApps: [AppItem] {
         var result = apps
 
-        if let category = selectedCategory {
-            result = result.filter { $0.category?.id == category.id }
-        }
-
         if !searchText.isEmpty {
-            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+            result = result.filter { $0.matches(searchText) }
         }
 
         return result
-    }
-
-    var groupedApps: [(CustomCategory, [AppItem])] {
-        let filtered = filteredApps
-        var grouped: [UUID: [AppItem]] = [:]
-
-        for app in filtered {
-            if let category = app.category {
-                grouped[category.id, default: []].append(app)
-            }
-        }
-
-        return categoryManager.categories.compactMap { category in
-            guard let apps = grouped[category.id], !apps.isEmpty else { return nil }
-            return (category, apps)
-        }
     }
 
     // Folder groups derived from apps
@@ -854,7 +950,7 @@ class LauncherViewModel: ObservableObject {
         if folderQuery.isEmpty {
             return folder.apps
         }
-        return folder.apps.filter { $0.name.localizedCaseInsensitiveContains(folderQuery) }
+        return folder.apps.filter { $0.matches(folderQuery) }
     }
 
     init() {
@@ -862,16 +958,55 @@ class LauncherViewModel: ObservableObject {
     }
 
     func navigateToFolder(id: UUID) {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(Design.animation(0.2)) {
             route = .folderDetail(folderId: id)
             folderQuery = ""
+            selection = 0
         }
     }
 
     func navigateToHome() {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(Design.animation(0.2)) {
             route = .home
             folderQuery = ""
+            selection = 0
+        }
+    }
+
+    /// 目前畫面上可以被選取的項目數
+    var selectableCount: Int {
+        guard LauncherSettings.shared.showCategories else { return filteredApps.count }
+        switch route {
+        case .home: return searchText.isEmpty ? folderGroups.count : filteredApps.count
+        case .folderDetail: return filteredFolderApps.count
+        }
+    }
+
+    func moveSelection(dx: Int, dy: Int) {
+        let count = selectableCount
+        guard count > 0 else { return }
+        let target = selection + dx + dy * max(1, columns)
+        selection = min(max(target, 0), count - 1)
+    }
+
+    /// 開啟目前選取的項目：首頁是資料夾，其餘是 App
+    func activateSelection() {
+        let count = selectableCount
+        guard count > 0, selection >= 0, selection < count else { return }
+
+        guard LauncherSettings.shared.showCategories else {
+            launchApp(filteredApps[selection])
+            return
+        }
+        switch route {
+        case .home:
+            if searchText.isEmpty {
+                navigateToFolder(id: folderGroups[selection].id)
+            } else {
+                launchApp(filteredApps[selection])
+            }
+        case .folderDetail:
+            launchApp(filteredFolderApps[selection])
         }
     }
 
@@ -892,39 +1027,66 @@ class LauncherViewModel: ObservableObject {
 // symbolEffect 需 macOS 14（.rotate 需 15）、雙參數 onChange 需 macOS 14；舊系統略過動畫
 extension View {
     @ViewBuilder
-    func compatBounce<V: Equatable>(value: V) -> some View {
-        if #available(macOS 14.0, *) {
-            symbolEffect(.bounce, value: value)
-        } else {
-            self
-        }
-    }
-
-    @ViewBuilder
-    func compatRotate<V: Equatable>(value: V) -> some View {
-        if #available(macOS 15.0, *) {
-            symbolEffect(.rotate, value: value)
-        } else {
-            compatBounce(value: value)
-        }
-    }
-
-    @ViewBuilder
-    func compatPulse(isActive: Bool) -> some View {
-        if #available(macOS 14.0, *) {
-            symbolEffect(.pulse, isActive: isActive)
-        } else {
-            self
-        }
-    }
-
-    @ViewBuilder
     func compatOnChange<V: Equatable>(of value: V, perform action: @escaping () -> Void) -> some View {
         if #available(macOS 14.0, *) {
             onChange(of: value) { action() }
         } else {
             onChange(of: value) { _ in action() }
         }
+    }
+}
+
+// MARK: - Design Tokens
+// 畫面主角是各家 App 的彩色圖示，介面本身一律用中性灰階讓位；
+// 彩色只保留語意用途（danger = 刪除）。
+enum Design {
+    enum Palette {
+        static let textPrimary = Color.white.opacity(0.95)
+        static let textSecondary = Color.white.opacity(0.55)
+        static let textTertiary = Color.white.opacity(0.35)
+
+        static let raised = Color.white.opacity(0.08)
+        static let raisedHover = Color.white.opacity(0.14)
+        static let stroke = Color.white.opacity(0.12)
+        static let selection = Color.white.opacity(0.18)
+
+        static let overlaySurface = Color(red: 0.11, green: 0.11, blue: 0.12)
+        static let overlayScrim = Color.black.opacity(0.65)
+
+        static let danger = Color(red: 1.0, green: 0.27, blue: 0.23)
+    }
+
+    enum Space {
+        static let xs: CGFloat = 4
+        static let s: CGFloat = 8
+        static let m: CGFloat = 16
+        static let l: CGFloat = 24
+        static let xl: CGFloat = 40
+        static let xxl: CGFloat = 64
+    }
+
+    enum Radius {
+        static let small: CGFloat = 8
+        static let large: CGFloat = 16
+    }
+
+    enum Typo {
+        static let display = Font.system(size: 24, weight: .semibold)
+        static let title = Font.system(size: 17, weight: .semibold)
+        static let body = Font.system(size: 13)
+        static let bodyMedium = Font.system(size: 13, weight: .medium)
+        static let caption = Font.system(size: 11)
+        // 數量會變動，用等寬數字避免文字寬度跳動
+        static let count = Font.system(size: 11).monospacedDigit()
+    }
+
+    /// 系統「減少動態效果」開啟時不播動畫
+    static var reduceMotion: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    static func animation(_ duration: Double = 0.15) -> Animation? {
+        reduceMotion ? nil : .easeInOut(duration: duration)
     }
 }
 
@@ -935,264 +1097,263 @@ struct SettingsView: View {
     @ObservedObject var recorder = HotkeyRecorder.shared
     @Binding var isPresented: Bool
 
-    // Animation triggers
-    @State private var iconSizeBounce = 0
-    @State private var spacingBounce = 0
-    @State private var opacityBounce = 0
-    @State private var categoryBounce = 0
-    @State private var hotkeyBounce = 0
-    @State private var launchBehaviorBounce = 0
-    @State private var languageBounce = 0
+    @State private var confirmReset = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header - 固定在頂部
-            HStack {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.blue)
-                    .compatRotate(value: isPresented)
-                Text(L("settings"))
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.primary)
-                Spacer()
-                Button(action: { isPresented = false }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.secondary)
-                        .compatBounce(value: isPresented)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(20)
-            .background(Color(nsColor: NSColor.windowBackgroundColor))
-
-            Divider()
+            PanelHeader(title: L("settings"), icon: "gearshape") { isPresented = false }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Icon Size
-                    AnimatedSettingSection(
-                        title: L("iconSize"),
-                        icon: "square.grid.2x2.fill",
-                        animationTrigger: iconSizeBounce
-                    ) {
-                        HStack {
-                            Text("\(Int(settings.iconSize))")
-                                .foregroundColor(.primary)
-                                .frame(width: 40)
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
-                            Slider(value: $settings.iconSize, in: 48...128, step: 8)
-                                .tint(.blue)
-                                .compatOnChange(of: settings.iconSize) {
-                                    iconSizeBounce += 1
-                                }
-                            Image(systemName: "app.fill")
-                                .font(.system(size: settings.iconSize / 3))
-                                .foregroundColor(.blue.opacity(0.6))
-                                .compatBounce(value: iconSizeBounce)
-                        }
+                VStack(alignment: .leading, spacing: Design.Space.m) {
+                    // 快捷鍵擺第一段：這是最常被找的設定
+                    SettingSection(title: L("globalHotkey"), icon: "command") {
+                        hotkeyControl
                     }
 
-                    // Grid Spacing
-                    AnimatedSettingSection(
-                        title: L("gridSpacing"),
-                        icon: "arrow.left.arrow.right",
-                        animationTrigger: spacingBounce
-                    ) {
-                        HStack {
-                            Text("\(Int(settings.gridSpacing))")
-                                .foregroundColor(.primary)
-                                .frame(width: 40)
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
-                            Slider(value: $settings.gridSpacing, in: 10...60, step: 5)
-                                .tint(.green)
-                                .compatOnChange(of: settings.gridSpacing) {
-                                    spacingBounce += 1
-                                }
-                        }
-                    }
-
-                    // Background Opacity
-                    AnimatedSettingSection(
-                        title: L("backgroundDepth"),
-                        icon: "circle.lefthalf.filled",
-                        animationTrigger: opacityBounce
-                    ) {
-                        HStack {
-                            Text("\(Int(settings.backgroundOpacity * 100))%")
-                                .foregroundColor(.primary)
-                                .frame(width: 50)
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
-                            Slider(value: $settings.backgroundOpacity, in: 0.1...0.9, step: 0.1)
-                                .tint(.purple)
-                                .compatOnChange(of: settings.backgroundOpacity) {
-                                    opacityBounce += 1
-                                }
-                        }
-                    }
-
-                    // Show Categories
-                    AnimatedSettingSection(
-                        title: L("showCategories"),
-                        icon: settings.showCategories ? "folder.fill" : "folder",
-                        animationTrigger: categoryBounce
-                    ) {
+                    SettingSection(title: L("showCategories"), icon: "folder") {
                         Toggle(L("groupByCategory"), isOn: $settings.showCategories)
                             .toggleStyle(.switch)
-                            .tint(.orange)
-                            .compatOnChange(of: settings.showCategories) {
-                                categoryBounce += 1
-                            }
+                            .tint(Design.Palette.textSecondary)
+                            .font(Design.Typo.body)
+                            .foregroundColor(Design.Palette.textPrimary)
                     }
 
-                    // Launch Behavior
-                    AnimatedSettingSection(
-                        title: L("launchBehavior"),
-                        icon: "arrow.up.forward.app.fill",
-                        animationTrigger: launchBehaviorBounce
-                    ) {
+                    SettingSection(title: L("launchBehavior"), icon: "arrow.up.forward.app") {
                         Picker("", selection: $settings.launchBehavior) {
                             ForEach(LaunchBehavior.allCases, id: \.self) { behavior in
                                 Text(behavior.displayName).tag(behavior)
                             }
                         }
                         .pickerStyle(.segmented)
-                        .compatOnChange(of: settings.launchBehavior) {
-                            launchBehaviorBounce += 1
-                        }
+                        .labelsHidden()
                     }
 
-                    // Hotkey
-                    AnimatedSettingSection(
-                        title: L("globalHotkey"),
-                        icon: "command.circle.fill",
-                        animationTrigger: hotkeyBounce
-                    ) {
-                        HStack {
-                            Text(settings.hotkeyDescription)
-                                .foregroundColor(.primary)
-                                .font(.system(size: 15, weight: .medium, design: .rounded))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(recorder.isRecording ? Color.red.opacity(0.2) : Color(nsColor: NSColor.controlBackgroundColor))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(recorder.isRecording ? Color.red : Color.gray.opacity(0.3), lineWidth: 1)
-                                        )
-                                )
-                                .compatPulse(isActive: recorder.isRecording)
-
-                            Spacer()
-
-                            Button(action: {
-                                if recorder.isRecording {
-                                    recorder.cancel()
-                                } else {
-                                    recorder.start()
-                                }
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: recorder.isRecording ? "stop.circle.fill" : "record.circle")
-                                        .compatBounce(value: hotkeyBounce)
-                                    Text(recorder.isRecording ? L("cancel") : L("modify"))
-                                }
-                                .foregroundColor(recorder.isRecording ? .red : .blue)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(recorder.isRecording ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .compatOnChange(of: recorder.isRecording) {
-                                hotkeyBounce += 1
-                            }
-                        }
-
-                        if let error = recorder.errorMessage {
-                            Text(error)
-                                .font(.system(size: 12))
-                                .foregroundColor(.red)
-                        }
+                    SettingSection(title: L("iconSize"), icon: "square.grid.2x2") {
+                        sliderRow(value: $settings.iconSize, range: 48...128, step: 8,
+                                  label: "\(Int(settings.iconSize))")
                     }
 
-                    // Language
-                    AnimatedSettingSection(
-                        title: L("language"),
-                        icon: "globe",
-                        animationTrigger: languageBounce
-                    ) {
+                    SettingSection(title: L("gridSpacing"), icon: "arrow.left.arrow.right") {
+                        sliderRow(value: $settings.gridSpacing, range: 10...60, step: 5,
+                                  label: "\(Int(settings.gridSpacing))")
+                    }
+
+                    SettingSection(title: L("backgroundDepth"), icon: "circle.lefthalf.filled") {
+                        sliderRow(value: $settings.backgroundOpacity, range: 0.1...0.9, step: 0.1,
+                                  label: "\(Int(settings.backgroundOpacity * 100))%")
+                    }
+
+                    SettingSection(title: L("language"), icon: "globe") {
                         Picker("", selection: $localization.currentLanguage) {
                             ForEach(AppLanguage.allCases, id: \.self) { lang in
                                 Text(lang.displayName).tag(lang)
                             }
                         }
                         .pickerStyle(.segmented)
-                        .compatOnChange(of: localization.currentLanguage) {
-                            languageBounce += 1
-                        }
+                        .labelsHidden()
                     }
 
-                    Spacer(minLength: 10)
+                    Button(action: { confirmReset = true }) {
+                        Text(L("resetSettings"))
+                            .font(Design.Typo.body)
+                            .foregroundColor(Design.Palette.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, Design.Space.s)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 20)
+                .padding(.horizontal, Design.Space.l)
+                .padding(.vertical, Design.Space.l)
             }
             .frame(maxHeight: 520)
         }
-        .frame(width: 500)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(nsColor: NSColor.windowBackgroundColor))
-                .shadow(color: .black.opacity(0.5), radius: 30)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .panelChrome(width: 500)
+        .confirmationDialog(L("resetSettingsConfirm"), isPresented: $confirmReset, titleVisibility: .visible) {
+            Button(L("reset"), role: .destructive) { settings.resetToDefaults() }
+            Button(L("cancel"), role: .cancel) {}
+        } message: {
+            Text(L("resetSettingsMessage"))
+        }
         .onDisappear {
             // 面板被 ESC / 背景點擊 / 關閉鈕收起時，一併結束錄製，避免下一個按鍵被當成快捷鍵
             recorder.cancel()
         }
     }
+
+    // 整塊可點即進入錄製，不再只有右邊按鈕可按
+    private var hotkeyControl: some View {
+        VStack(alignment: .leading, spacing: Design.Space.s) {
+            Button(action: { recorder.isRecording ? recorder.cancel() : recorder.start() }) {
+                HStack {
+                    Text(settings.hotkeyDescription)
+                        .font(.system(size: 15, weight: .medium).monospacedDigit())
+                        .foregroundColor(Design.Palette.textPrimary)
+                    Spacer()
+                    Text(recorder.isRecording ? L("cancel") : L("modify"))
+                        .font(Design.Typo.body)
+                        .foregroundColor(Design.Palette.textSecondary)
+                }
+                .padding(.horizontal, Design.Space.m)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: Design.Radius.small)
+                        .fill(Design.Palette.raised)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Design.Radius.small)
+                                .stroke(recorder.isRecording ? Design.Palette.textPrimary : Design.Palette.stroke,
+                                        lineWidth: recorder.isRecording ? 2 : 1)
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+
+            if recorder.isRecording {
+                Text(L("hotkeyRecordingHint"))
+                    .font(Design.Typo.caption)
+                    .foregroundColor(Design.Palette.textSecondary)
+            } else if let error = recorder.errorMessage {
+                Text(error)
+                    .font(Design.Typo.caption)
+                    .foregroundColor(Design.Palette.danger)
+            }
+        }
+    }
+
+    private func sliderRow(value: Binding<CGFloat>, range: ClosedRange<CGFloat>,
+                           step: CGFloat, label: String) -> some View {
+        HStack(spacing: Design.Space.m) {
+            Text(label)
+                .font(Design.Typo.count)
+                .foregroundColor(Design.Palette.textSecondary)
+                .frame(width: 40, alignment: .leading)
+            Slider(value: value, in: range, step: step)
+                .tint(Design.Palette.textSecondary)
+        }
+    }
+
+    private func sliderRow(value: Binding<Double>, range: ClosedRange<Double>,
+                           step: Double, label: String) -> some View {
+        HStack(spacing: Design.Space.m) {
+            Text(label)
+                .font(Design.Typo.count)
+                .foregroundColor(Design.Palette.textSecondary)
+                .frame(width: 40, alignment: .leading)
+            Slider(value: value, in: range, step: step)
+                .tint(Design.Palette.textSecondary)
+        }
+    }
 }
 
-// MARK: - Animated Setting Section
-struct AnimatedSettingSection<Content: View>: View {
+// MARK: - Panel Building Blocks
+struct PanelHeader: View {
     let title: String
     let icon: String
-    let animationTrigger: Int
+    let onClose: () -> Void
+
+    var body: some View {
+        HStack(spacing: Design.Space.s) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(Design.Palette.textSecondary)
+            Text(title)
+                .font(Design.Typo.title)
+                .foregroundColor(Design.Palette.textPrimary)
+            Spacer()
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Design.Palette.textSecondary)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Design.Palette.raised))
+            }
+            .buttonStyle(.plain)
+            .help(L("close"))
+        }
+        .padding(Design.Space.l)
+    }
+}
+
+struct SettingSection<Content: View>: View {
+    let title: String
+    let icon: String
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: Design.Space.s) {
+            HStack(spacing: Design.Space.s) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundColor(.blue)
-                    .compatBounce(value: animationTrigger)
-                    .frame(width: 24)
+                    .font(.system(size: 13))
+                    .foregroundColor(Design.Palette.textTertiary)
+                    .frame(width: 18)
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .font(Design.Typo.bodyMedium)
+                    .foregroundColor(Design.Palette.textSecondary)
             }
             content()
         }
-        .padding(18)
+        .padding(Design.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: NSColor.controlBackgroundColor).opacity(0.6))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                )
+            RoundedRectangle(cornerRadius: Design.Radius.small)
+                .fill(Design.Palette.raised)
         )
+    }
+}
+
+struct IconPicker: View {
+    @Binding var selection: String
+
+    static let icons = [
+        "folder.fill", "star.fill", "heart.fill", "bookmark.fill",
+        "tag.fill", "briefcase.fill", "hammer.fill", "wrench.fill",
+        "gamecontroller.fill", "music.note", "photo.fill", "video.fill",
+        "message.fill", "envelope.fill", "globe", "book.fill",
+        "graduationcap.fill", "paintbrush.fill", "camera.fill", "film.fill"
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.fixed(40), spacing: Design.Space.s), count: 5),
+                  spacing: Design.Space.s) {
+            ForEach(Self.icons, id: \.self) { icon in
+                Button(action: { selection = icon }) {
+                    Image(systemName: icon)
+                        .font(.system(size: 16))
+                        .foregroundColor(selection == icon ? Design.Palette.textPrimary : Design.Palette.textSecondary)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: Design.Radius.small)
+                                .fill(selection == icon ? Design.Palette.selection : Design.Palette.raised)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+extension View {
+    /// Sheet 共用外觀，與面板同一套深色語言
+    func sheetChrome(width: CGFloat) -> some View {
+        frame(width: width)
+            .background(Design.Palette.overlaySurface)
+            // 系統控制項（Slider / Toggle / Picker）跟著用深色外觀
+            .environment(\.colorScheme, .dark)
+    }
+
+    /// 面板共用外觀：深色表面 + 細邊框 + 陰影
+    func panelChrome(width: CGFloat) -> some View {
+        frame(width: width)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.large)
+                    .fill(Design.Palette.overlaySurface)
+                    .shadow(color: .black.opacity(0.45), radius: 30)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.Radius.large)
+                    .stroke(Design.Palette.stroke, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Design.Radius.large))
+            .environment(\.colorScheme, .dark)
     }
 }
 
@@ -1205,6 +1366,8 @@ struct CategoryManagerView: View {
     @State private var showAddCategory = false
     @State private var editingCategory: CustomCategory? = nil
     @State private var showAppSelector: CustomCategory? = nil
+    @State private var pendingDelete: CustomCategory? = nil
+    @State private var confirmReset = false
 
     // 共用已掃描的 App 清單，一次算出各分類數量（分類或指派變動時自動重算）
     private var appCounts: [UUID: Int] {
@@ -1220,91 +1383,76 @@ struct CategoryManagerView: View {
     var body: some View {
         let counts = appCounts
         VStack(spacing: 0) {
-            // Header - 固定在頂部
-            HStack {
-                Image(systemName: "folder.badge.gearshape")
-                    .font(.system(size: 20))
-                    .foregroundColor(.blue)
-                Text(L("categoryManager"))
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.primary)
-                Spacer()
-                Button(action: { isPresented = false }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(20)
-            .background(Color(nsColor: NSColor.windowBackgroundColor))
-
-            Divider()
+            PanelHeader(title: L("categoryManager"), icon: "folder.badge.gearshape") { isPresented = false }
 
             // Category List - 可滾動區域
             ScrollView {
-                VStack(spacing: 12) {
+                VStack(spacing: Design.Space.s) {
                     ForEach(categoryManager.categories) { category in
                         CategoryRowView(
                             category: category,
                             appCount: counts[category.id] ?? 0,
                             onEdit: { editingCategory = category },
                             onManageApps: { showAppSelector = category },
-                            onDelete: {
-                                withAnimation {
-                                    categoryManager.deleteCategory(category)
-                                }
-                            }
+                            onDelete: { pendingDelete = category }
                         )
                     }
 
                     // Add Category Button
                     Button(action: { showAddCategory = true }) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 20))
+                        HStack(spacing: Design.Space.s) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 13, weight: .semibold))
                             Text(L("addCategory"))
-                                .font(.system(size: 15, weight: .medium))
+                                .font(Design.Typo.bodyMedium)
                         }
-                        .foregroundColor(.blue)
+                        .foregroundColor(Design.Palette.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(16)
+                        .padding(Design.Space.m)
                         .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.blue.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [8]))
+                            RoundedRectangle(cornerRadius: Design.Radius.small)
+                                .stroke(Design.Palette.stroke, style: StrokeStyle(lineWidth: 1, dash: [6]))
                         )
                     }
                     .buttonStyle(.plain)
 
                     // Reset Button
-                    Button(action: {
-                        categoryManager.resetToDefaults()
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.counterclockwise")
-                            Text(L("resetToDefaults"))
-                        }
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
+                    Button(action: { confirmReset = true }) {
+                        Text(L("resetToDefaults"))
+                            .font(Design.Typo.body)
+                            .foregroundColor(Design.Palette.textTertiary)
                     }
                     .buttonStyle(.plain)
-                    .padding(.top, 10)
+                    .padding(.top, Design.Space.s)
                 }
-                .padding(20)
+                .padding(Design.Space.l)
             }
             .frame(maxHeight: 450)
         }
-        .frame(width: 500)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(nsColor: NSColor.windowBackgroundColor))
-                .shadow(color: .black.opacity(0.5), radius: 30)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .panelChrome(width: 500)
+        .confirmationDialog(
+            L("deleteCategoryConfirm", pendingDelete?.displayName ?? ""),
+            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button(L("delete"), role: .destructive) {
+                if let category = pendingDelete {
+                    withAnimation(Design.animation()) { categoryManager.deleteCategory(category) }
+                }
+                pendingDelete = nil
+            }
+            Button(L("cancel"), role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text(L("deleteCategoryMessage", pendingDelete.map { counts[$0.id] ?? 0 } ?? 0))
+        }
+        .confirmationDialog(L("resetCategoriesConfirm"), isPresented: $confirmReset, titleVisibility: .visible) {
+            Button(L("reset"), role: .destructive) {
+                withAnimation(Design.animation()) { categoryManager.resetToDefaults() }
+            }
+            Button(L("cancel"), role: .cancel) {}
+        } message: {
+            Text(L("resetCategoriesMessage", categoryManager.appCategoryMap.count))
+        }
         .sheet(isPresented: $showAddCategory) {
             AddCategorySheet(isPresented: $showAddCategory)
         }
@@ -1326,8 +1474,8 @@ struct CategoryManagerView: View {
 // MARK: - Category Action Button
 struct CategoryActionButton: View {
     let icon: String
-    let color: Color
     let helpText: String
+    var isDestructive = false
     let action: () -> Void
 
     @State private var isHovered = false
@@ -1335,18 +1483,17 @@ struct CategoryActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundColor(color)
-                .padding(8)
-                .background(Circle().fill(color.opacity(isHovered ? 0.25 : 0.1)))
-                .scaleEffect(isHovered ? 1.1 : 1.0)
+                .font(.system(size: 13))
+                .foregroundColor(isDestructive ? Design.Palette.danger : Design.Palette.textSecondary)
+                .frame(width: 28, height: 28)
+                .background(
+                    Circle().fill(isHovered ? Design.Palette.raisedHover : Color.clear)
+                )
         }
         .buttonStyle(.plain)
         .help(helpText)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
+            withAnimation(Design.animation()) { isHovered = hovering }
         }
     }
 }
@@ -1363,62 +1510,42 @@ struct CategoryRowView: View {
     @ObservedObject var localization = LocalizationManager.shared
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: Design.Space.m) {
             Image(systemName: category.icon)
-                .font(.system(size: 24))
-                .foregroundColor(.blue)
-                .frame(width: 36)
+                .font(.system(size: 18))
+                .foregroundColor(Design.Palette.textSecondary)
+                .frame(width: 28)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(category.displayName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .font(Design.Typo.bodyMedium)
+                    .foregroundColor(Design.Palette.textPrimary)
                 Text(L("appsCount", appCount))
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                    .font(Design.Typo.count)
+                    .foregroundColor(Design.Palette.textTertiary)
             }
 
             Spacer()
 
-            // 按鈕持續顯示，各自獨立 hover 效果
-            HStack(spacing: 8) {
-                CategoryActionButton(
-                    icon: "square.grid.2x2",
-                    color: .blue,
-                    helpText: L("manageApps"),
-                    action: onManageApps
-                )
-
-                CategoryActionButton(
-                    icon: "pencil",
-                    color: .orange,
-                    helpText: L("editCategory"),
-                    action: onEdit
-                )
-
+            // 操作按鈕 hover 才出現，平時保持清爽
+            HStack(spacing: Design.Space.xs) {
+                CategoryActionButton(icon: "square.grid.2x2", helpText: L("manageApps"), action: onManageApps)
+                CategoryActionButton(icon: "pencil", helpText: L("editCategory"), action: onEdit)
                 if category.categoryKey != CategoryManager.fallbackCategoryKey {
-                    CategoryActionButton(
-                        icon: "trash",
-                        color: .red,
-                        helpText: L("deleteCategory"),
-                        action: onDelete
-                    )
+                    CategoryActionButton(icon: "trash", helpText: L("deleteCategory"),
+                                         isDestructive: true, action: onDelete)
                 }
             }
+            .opacity(isHovered ? 1 : 0)
         }
-        .padding(14)
+        .padding(.horizontal, Design.Space.m)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isHovered ? Color(nsColor: NSColor.controlBackgroundColor) : Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Design.Radius.small)
+                .fill(isHovered ? Design.Palette.raised : Color.clear)
         )
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
+            withAnimation(Design.animation()) { isHovered = hovering }
         }
     }
 }
@@ -1430,18 +1557,11 @@ struct AddCategorySheet: View {
     @State private var selectedIcon = "folder.fill"
     @ObservedObject var categoryManager = CategoryManager.shared
 
-    let availableIcons = [
-        "folder.fill", "star.fill", "heart.fill", "bookmark.fill",
-        "tag.fill", "briefcase.fill", "hammer.fill", "wrench.fill",
-        "gamecontroller.fill", "music.note", "photo.fill", "video.fill",
-        "message.fill", "envelope.fill", "globe", "book.fill",
-        "graduationcap.fill", "paintbrush.fill", "camera.fill", "film.fill"
-    ]
-
     var body: some View {
         VStack(spacing: 20) {
             Text(L("addCategory"))
-                .font(.system(size: 18, weight: .semibold))
+                .font(Design.Typo.title)
+                .foregroundColor(Design.Palette.textPrimary)
 
             TextField(L("categoryName"), text: $categoryName)
                 .textFieldStyle(.roundedBorder)
@@ -1449,24 +1569,10 @@ struct AddCategorySheet: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(L("selectIcon"))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .font(Design.Typo.body)
+                    .foregroundColor(Design.Palette.textSecondary)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(44)), count: 5), spacing: 10) {
-                    ForEach(availableIcons, id: \.self) { icon in
-                        Button(action: { selectedIcon = icon }) {
-                            Image(systemName: icon)
-                                .font(.system(size: 20))
-                                .foregroundColor(selectedIcon == icon ? .white : .blue)
-                                .frame(width: 40, height: 40)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(selectedIcon == icon ? Color.blue : Color.blue.opacity(0.1))
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                IconPicker(selection: $selectedIcon)
             }
 
             HStack(spacing: 16) {
@@ -1485,8 +1591,8 @@ struct AddCategorySheet: View {
                 .disabled(categoryName.isEmpty)
             }
         }
-        .padding(30)
-        .frame(width: 320)
+        .padding(Design.Space.l)
+        .sheetChrome(width: 320)
     }
 }
 
@@ -1498,14 +1604,6 @@ struct EditCategorySheet: View {
     @State private var selectedIcon: String
     @ObservedObject var categoryManager = CategoryManager.shared
 
-    let availableIcons = [
-        "folder.fill", "star.fill", "heart.fill", "bookmark.fill",
-        "tag.fill", "briefcase.fill", "hammer.fill", "wrench.fill",
-        "gamecontroller.fill", "music.note", "photo.fill", "video.fill",
-        "message.fill", "envelope.fill", "globe", "book.fill",
-        "graduationcap.fill", "paintbrush.fill", "camera.fill", "film.fill"
-    ]
-
     init(category: CustomCategory, isPresented: Binding<Bool>) {
         self.category = category
         self._isPresented = isPresented
@@ -1516,7 +1614,8 @@ struct EditCategorySheet: View {
     var body: some View {
         VStack(spacing: 20) {
             Text(L("editCategory"))
-                .font(.system(size: 18, weight: .semibold))
+                .font(Design.Typo.title)
+                .foregroundColor(Design.Palette.textPrimary)
 
             TextField(L("categoryName"), text: $categoryName)
                 .textFieldStyle(.roundedBorder)
@@ -1524,24 +1623,10 @@ struct EditCategorySheet: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(L("selectIcon"))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .font(Design.Typo.body)
+                    .foregroundColor(Design.Palette.textSecondary)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(44)), count: 5), spacing: 10) {
-                    ForEach(availableIcons, id: \.self) { icon in
-                        Button(action: { selectedIcon = icon }) {
-                            Image(systemName: icon)
-                                .font(.system(size: 20))
-                                .foregroundColor(selectedIcon == icon ? .white : .blue)
-                                .frame(width: 40, height: 40)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(selectedIcon == icon ? Color.blue : Color.blue.opacity(0.1))
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                IconPicker(selection: $selectedIcon)
             }
 
             HStack(spacing: 16) {
@@ -1567,8 +1652,8 @@ struct EditCategorySheet: View {
                 .disabled(categoryName.isEmpty)
             }
         }
-        .padding(30)
-        .frame(width: 320)
+        .padding(Design.Space.l)
+        .sheetChrome(width: 320)
     }
 }
 
@@ -1584,59 +1669,47 @@ struct AppSelectorSheet: View {
         if searchText.isEmpty {
             return viewModel.apps
         }
-        return viewModel.apps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        return viewModel.apps.filter { $0.matches(searchText) }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 12) {
-                HStack {
-                    Image(systemName: category.icon)
-                        .font(.system(size: 24))
-                        .foregroundColor(.blue)
-                    Text(category.displayName)
-                        .font(.system(size: 18, weight: .semibold))
-                    Spacer()
-                    Button(action: { isPresented = false }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
+            VStack(spacing: Design.Space.s) {
+                PanelHeader(title: category.displayName, icon: category.icon) { isPresented = false }
+                    .padding(.horizontal, -Design.Space.l)
+                    .padding(.top, -Design.Space.l)
 
-                TextField(L("searchApps"), text: $searchText)
-                    .textFieldStyle(.roundedBorder)
+                SearchField(placeholder: L("searchApps"), text: $searchText)
+                    .frame(maxWidth: .infinity)
             }
-            .padding(20)
-            .background(Color(nsColor: NSColor.controlBackgroundColor).opacity(0.5))
+            .padding(Design.Space.l)
 
-            // App List
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(filteredApps) { app in
-                        AppSelectionRow(app: app, category: category)
+            if filteredApps.isEmpty {
+                EmptyStateView(icon: "magnifyingglass", title: L("noResults", searchText), hint: L("noResultsHint"))
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: Design.Space.xs) {
+                        ForEach(filteredApps) { app in
+                            AppSelectionRow(app: app, category: category)
+                        }
                     }
+                    .padding(.horizontal, Design.Space.m)
+                    .padding(.bottom, Design.Space.m)
                 }
-                .padding(16)
             }
 
-            // Footer
             HStack {
                 Text(L("appsWillBeCategorized", category.displayName))
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                    .font(Design.Typo.caption)
+                    .foregroundColor(Design.Palette.textTertiary)
                 Spacer()
-                Button(L("done")) {
-                    isPresented = false
-                }
-                .keyboardShortcut(.defaultAction)
+                Button(L("done")) { isPresented = false }
+                    .keyboardShortcut(.defaultAction)
             }
-            .padding(16)
-            .background(Color(nsColor: NSColor.controlBackgroundColor).opacity(0.3))
+            .padding(Design.Space.m)
         }
-        .frame(width: 450, height: 500)
+        .frame(height: 500)
+        .sheetChrome(width: 460)
     }
 }
 
@@ -1658,60 +1731,26 @@ struct AppSelectionRow: View {
                 categoryManager.setAppCategory(appPath: app.path, categoryId: category.id)
             }
         }) {
-            HStack(spacing: 12) {
+            HStack(spacing: Design.Space.m) {
                 Image(nsImage: app.icon)
                     .resizable()
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
 
                 Text(app.name)
-                    .font(.system(size: 14))
-                    .foregroundColor(.primary)
+                    .font(Design.Typo.body)
+                    .foregroundColor(Design.Palette.textPrimary)
 
                 Spacer()
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
-                    .foregroundColor(isSelected ? .blue : .gray.opacity(0.5))
+                    .font(.system(size: 16))
+                    .foregroundColor(isSelected ? Design.Palette.textPrimary : Design.Palette.textTertiary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, Design.Space.s)
+            .padding(.vertical, Design.Space.s)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Category Button
-struct CategoryButton: View {
-    let category: CustomCategory?
-    let isSelected: Bool
-    let action: () -> Void
-
-    var title: String {
-        category?.displayName ?? L("all")
-    }
-
-    var icon: String {
-        category?.icon ?? "square.grid.2x2.fill"
-    }
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 12))
-                Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-            }
-            .foregroundColor(isSelected ? .white : .white.opacity(0.7))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? Color.blue.opacity(0.6) : Color.white.opacity(0.1))
+                RoundedRectangle(cornerRadius: Design.Radius.small)
+                    .fill(isSelected ? Design.Palette.raised : Color.clear)
             )
         }
         .buttonStyle(.plain)
@@ -1722,6 +1761,7 @@ struct CategoryButton: View {
 struct AppIconView: View {
     let app: AppItem
     let size: CGFloat
+    var isSelected = false
     let onTap: () -> Void
     @State private var isHovered = false
 
@@ -1732,28 +1772,31 @@ struct AppIconView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: size, height: size)
-                    .shadow(color: .black.opacity(0.3), radius: isHovered ? 10 : 5)
-                    .scaleEffect(isHovered ? 1.12 : 1.0)
+                    .shadow(color: .black.opacity(0.3), radius: 5)
 
                 Text(app.name)
-                    .font(.system(size: size > 64 ? 13 : 11, weight: .medium))
-                    .foregroundColor(.white)
+                    .font(size > 64 ? Design.Typo.body : Design.Typo.caption)
+                    .foregroundColor(Design.Palette.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .frame(width: size + 30)
                     .shadow(color: .black.opacity(0.5), radius: 2)
             }
-            .padding(10)
+            .padding(Design.Space.s)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isHovered ? Color.white.opacity(0.15) : Color.clear)
+                RoundedRectangle(cornerRadius: Design.Radius.small)
+                    .fill(isSelected ? Design.Palette.selection
+                          : (isHovered ? Design.Palette.raised : Color.clear))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.Radius.small)
+                    .stroke(Design.Palette.textPrimary, lineWidth: isSelected ? 2 : 0)
             )
         }
         .buttonStyle(.plain)
+        .help(app.name)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
+            withAnimation(Design.animation()) { isHovered = hovering }
         }
     }
 }
@@ -1762,6 +1805,7 @@ struct AppIconView: View {
 struct FolderCardView: View {
     let folder: FolderGroup
     let iconSize: CGFloat
+    var isSelected = false
     let onTap: () -> Void
     @State private var isHovered = false
     @ObservedObject var localization = LocalizationManager.shared
@@ -1773,9 +1817,14 @@ struct FolderCardView: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 12) {
-                // 2x2 Preview Grid - NO background
-                LazyVGrid(columns: [GridItem(.fixed(previewIconSize)), GridItem(.fixed(previewIconSize))], spacing: 8) {
+            // 預覽圖示與文字統一靠左，維持同一條視覺軸線
+            VStack(alignment: .leading, spacing: Design.Space.m) {
+                LazyVGrid(
+                    columns: [GridItem(.fixed(previewIconSize), spacing: Design.Space.s),
+                              GridItem(.fixed(previewIconSize), spacing: Design.Space.s)],
+                    alignment: .leading,
+                    spacing: Design.Space.s
+                ) {
                     ForEach(0..<4, id: \.self) { index in
                         if index < folder.previewApps.count {
                             Image(nsImage: folder.previewApps[index].icon)
@@ -1790,38 +1839,175 @@ struct FolderCardView: View {
                     }
                 }
 
-                // Folder Info
-                VStack(spacing: 4) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: Design.Space.xs) {
                         Image(systemName: folder.icon)
-                            .font(.system(size: 14))
+                            .font(.system(size: 12))
+                            .foregroundColor(Design.Palette.textSecondary)
                         Text(folder.title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(Design.Typo.bodyMedium)
+                            .foregroundColor(Design.Palette.textPrimary)
+                            .lineLimit(1)
                     }
-                    .foregroundColor(.white)
-
                     Text(L("appsCount", folder.count))
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(Design.Typo.count)
+                        .foregroundColor(Design.Palette.textTertiary)
                 }
             }
-            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Design.Space.m)
             .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(isHovered ? Color.white.opacity(0.15) : Color.white.opacity(0.08))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18)
-                            .stroke(Color.white.opacity(isHovered ? 0.25 : 0.12), lineWidth: 1)
-                    )
+                RoundedRectangle(cornerRadius: Design.Radius.large)
+                    .fill(isSelected ? Design.Palette.selection
+                          : (isHovered ? Design.Palette.raisedHover : Design.Palette.raised))
             )
-            .scaleEffect(isHovered ? 1.03 : 1.0)
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.Radius.large)
+                    .stroke(isSelected ? Design.Palette.textPrimary : Design.Palette.stroke,
+                            lineWidth: isSelected ? 2 : 1)
+            )
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
+            withAnimation(Design.animation()) { isHovered = hovering }
+        }
+    }
+}
+
+// MARK: - Shared Components
+struct TopBarButton: View {
+    let icon: String
+    let help: String
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundColor(Design.Palette.textSecondary)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(isHovered ? Design.Palette.raisedHover : Design.Palette.raised))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .onHover { hovering in
+            withAnimation(Design.animation()) { isHovered = hovering }
+        }
+    }
+}
+
+struct SearchField: View {
+    let placeholder: String
+    @Binding var text: String
+
+    var body: some View {
+        HStack(spacing: Design.Space.s) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundColor(Design.Palette.textTertiary)
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .font(Design.Typo.body)
+                .foregroundColor(Design.Palette.textPrimary)
+            if !text.isEmpty {
+                Button(action: { text = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Design.Palette.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .help(L("clearSearch"))
             }
         }
+        .padding(.horizontal, Design.Space.m)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.small)
+                .fill(Design.Palette.raised)
+        )
+        .frame(maxWidth: 360)
+    }
+}
+
+struct EmptyStateView: View {
+    let icon: String
+    let title: String
+    let hint: String
+
+    var body: some View {
+        VStack(spacing: Design.Space.s) {
+            Image(systemName: icon)
+                .font(.system(size: 26))
+                .foregroundColor(Design.Palette.textTertiary)
+                .padding(.bottom, Design.Space.xs)
+            Text(title)
+                .font(Design.Typo.title)
+                .foregroundColor(Design.Palette.textSecondary)
+            Text(hint)
+                .font(Design.Typo.body)
+                .foregroundColor(Design.Palette.textTertiary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// 搜尋結果、資料夾內頁、平鋪模式共用同一組格線，切換時版面不跳動
+struct AppGridView: View {
+    let apps: [AppItem]
+    var showsCategoryLabel = false
+    @ObservedObject var settings = LauncherSettings.shared
+    @ObservedObject var viewModel = LauncherViewModel.shared
+
+    var body: some View {
+        GeometryReader { geometry in
+            let columns = columnCount(for: geometry.size.width)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing), count: columns),
+                        spacing: settings.gridSpacing
+                    ) {
+                        ForEach(Array(apps.enumerated()), id: \.element.id) { index, app in
+                            VStack(spacing: 2) {
+                                AppIconView(app: app, size: settings.iconSize,
+                                            isSelected: index == viewModel.selection) {
+                                    viewModel.selection = index
+                                    viewModel.launchApp(app)
+                                }
+                                // 搜尋時保留分類脈絡
+                                if showsCategoryLabel, let category = app.category {
+                                    Text(category.displayName)
+                                        .font(Design.Typo.caption)
+                                        .foregroundColor(Design.Palette.textTertiary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .id(index)
+                        }
+                    }
+                    .padding(.horizontal, Design.Space.xxl)
+                    .padding(.vertical, Design.Space.l)
+                }
+                .compatOnChange(of: viewModel.selection) {
+                    withAnimation(Design.animation()) {
+                        proxy.scrollTo(viewModel.selection, anchor: .center)
+                    }
+                }
+            }
+            .onAppear { report(columns) }
+            .compatOnChange(of: columns) { report(columns) }
+        }
+    }
+
+    private func report(_ columns: Int) {
+        DispatchQueue.main.async { viewModel.columns = columns }
+    }
+
+    private func columnCount(for width: CGFloat) -> Int {
+        let itemWidth = settings.iconSize + 50
+        let usable = width - Design.Space.xxl * 2
+        return max(1, Int(usable / max(itemWidth, 1)))
     }
 }
 
@@ -1830,31 +2016,41 @@ struct FolderGridView: View {
     let folders: [FolderGroup]
     let onFolderTap: (UUID) -> Void
     @ObservedObject var settings = LauncherSettings.shared
+    @ObservedObject var viewModel = LauncherViewModel.shared
 
     var body: some View {
         GeometryReader { geometry in
+            let columns = columnCount(for: geometry.size.width)
             ScrollView {
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing + 10), count: calculateFolderColumns(width: geometry.size.width)),
-                    spacing: settings.gridSpacing + 10
+                    columns: Array(repeating: GridItem(.flexible(), spacing: Design.Space.m), count: columns),
+                    spacing: Design.Space.m
                 ) {
-                    ForEach(folders) { folder in
-                        FolderCardView(folder: folder, iconSize: settings.iconSize) {
+                    ForEach(Array(folders.enumerated()), id: \.element.id) { index, folder in
+                        FolderCardView(folder: folder, iconSize: settings.iconSize,
+                                       isSelected: index == viewModel.selection) {
+                            viewModel.selection = index
                             onFolderTap(folder.id)
                         }
                     }
                 }
-                .padding(.horizontal, 100)
-                .padding(.vertical, 40)
+                .padding(.horizontal, Design.Space.xxl)
+                // 內容垂直置中，不再全部擠在上半部
+                .frame(minHeight: geometry.size.height, alignment: .center)
             }
+            .onAppear { report(columns) }
+            .compatOnChange(of: columns) { report(columns) }
         }
     }
 
-    // Auto calculate folder columns based on icon size
-    func calculateFolderColumns(width: CGFloat) -> Int {
-        let cardWidth = settings.iconSize * 2.2 + 60 // Approximate card width
-        let availableWidth = width - 200
-        return max(3, min(5, Int(availableWidth / cardWidth)))
+    private func report(_ columns: Int) {
+        DispatchQueue.main.async { viewModel.columns = columns }
+    }
+
+    private func columnCount(for width: CGFloat) -> Int {
+        let cardWidth = settings.iconSize * 2.2 + 80
+        let usable = width - Design.Space.xxl * 2
+        return max(2, min(8, Int(usable / max(cardWidth, 1))))
     }
 }
 
@@ -1864,102 +2060,59 @@ struct FolderDetailOverlay: View {
     let apps: [AppItem]
     @Binding var searchQuery: String
     let onBack: () -> Void
-    let onAppTap: (AppItem) -> Void
     @ObservedObject var settings = LauncherSettings.shared
     @ObservedObject var localization = LocalizationManager.shared
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 20) {
-                // Header
-                HStack(spacing: 16) {
-                    // Back Button
-                    Button(action: onBack) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 18, weight: .semibold))
-                            Text(L("back"))
-                                .font(.system(size: 15, weight: .medium))
-                        }
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.1))
-                        )
+        VStack(spacing: Design.Space.m) {
+            HStack(spacing: Design.Space.m) {
+                Button(action: onBack) {
+                    HStack(spacing: Design.Space.xs) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(L("back"))
+                            .font(Design.Typo.body)
                     }
-                    .buttonStyle(.plain)
-
-                    // Folder Title
-                    HStack(spacing: 10) {
-                        Image(systemName: folder.icon)
-                            .font(.system(size: 22))
-                        Text(folder.title)
-                            .font(.system(size: 24, weight: .bold))
-                        Text("(\(apps.count))")
-                            .font(.system(size: 18))
-                            .foregroundColor(.white.opacity(0.6))
-                    }
-                    .foregroundColor(.white)
-
-                    Spacer()
-
-                    // Search Bar
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.white.opacity(0.7))
-                        TextField(L("searchThisCategory"), text: $searchQuery)
-                            .textFieldStyle(.plain)
-                            .foregroundColor(.white)
-                            .font(.system(size: 16))
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.white.opacity(0.12))
-                    )
-                    .frame(maxWidth: 300)
+                    .foregroundColor(Design.Palette.textSecondary)
+                    .padding(.horizontal, Design.Space.m)
+                    .padding(.vertical, Design.Space.s)
+                    .background(Capsule().fill(Design.Palette.raised))
                 }
-                .padding(.horizontal, 80)
-                .padding(.top, 80)
+                .buttonStyle(.plain)
 
-                // Apps Grid
-                ScrollView {
-                    LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing),
-                                     count: calculateColumns(width: geometry.size.width - 160)),
-                        spacing: settings.gridSpacing
-                    ) {
-                        ForEach(apps) { app in
-                            AppIconView(app: app, size: settings.iconSize) {
-                                onAppTap(app)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 80)
-                    .padding(.vertical, 30)
+                HStack(spacing: Design.Space.s) {
+                    Image(systemName: folder.icon)
+                        .font(.system(size: 16))
+                        .foregroundColor(Design.Palette.textSecondary)
+                    Text(folder.title)
+                        .font(Design.Typo.display)
+                        .foregroundColor(Design.Palette.textPrimary)
+                    Text(L("appsCount", apps.count))
+                        .font(Design.Typo.count)
+                        .foregroundColor(Design.Palette.textTertiary)
                 }
 
-                // Bottom hint
-                Text("\(L("hintEscBack"))  |  \(L("hintHotkey")): \(settings.hotkeyDescription)")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.5))
-                    .padding(.bottom, 80)
+                Spacer()
+
+                SearchField(placeholder: L("searchThisCategory"), text: $searchQuery)
             }
-        }
-        .background(
-            Color.black.opacity(0.2)
-                .ignoresSafeArea()
-        )
-        .transition(.opacity.combined(with: .scale(scale: 0.98)))
-    }
+            .padding(.horizontal, Design.Space.xxl)
+            .padding(.top, Design.Space.xl)
 
-    func calculateColumns(width: CGFloat) -> Int {
-        let itemWidth = settings.iconSize + 50
-        let padding: CGFloat = 60
-        let availableWidth = width - padding
-        return max(4, Int(availableWidth / itemWidth))
+            if apps.isEmpty {
+                if searchQuery.isEmpty {
+                    EmptyStateView(icon: "square.dashed", title: L("emptyCategory"), hint: L("emptyCategoryHint"))
+                } else {
+                    EmptyStateView(icon: "magnifyingglass", title: L("noResults", searchQuery), hint: L("noResultsHint"))
+                }
+            } else {
+                AppGridView(apps: apps)
+            }
+
+            Color.clear.frame(height: Design.Space.l)
+        }
+        .background(Color.black.opacity(0.2).ignoresSafeArea())
+        .transition(.opacity)
     }
 }
 
@@ -1971,236 +2124,112 @@ struct LauncherView: View {
     @ObservedObject var localization = LocalizationManager.shared
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Background
-                VisualEffectView(material: .fullScreenUI, blendingMode: .behindWindow)
-                    .ignoresSafeArea()
+        ZStack {
+            VisualEffectView(material: .fullScreenUI, blendingMode: .behindWindow)
+                .ignoresSafeArea()
 
-                Color.black.opacity(settings.backgroundOpacity)
-                    .ignoresSafeArea()
+            // 點背景空白處關閉，與 Launchpad 的行為一致
+            Color.black.opacity(settings.backgroundOpacity)
+                .ignoresSafeArea()
+                .onTapGesture { (NSApp.delegate as? AppDelegate)?.hideLauncher() }
 
-                // Route-based content
-                if settings.showCategories {
-                    // Folder browsing mode
-                    ZStack {
-                        // Home view with folder cards
-                        if viewModel.route == .home {
-                            VStack(spacing: 16) {
-                                // Top Bar
-                                HStack {
-                                    // Settings Button
-                                    Button(action: { viewModel.showSettings.toggle() }) {
-                                        Image(systemName: "gear")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.white.opacity(0.7))
-                                            .padding(10)
-                                            .background(Circle().fill(Color.white.opacity(0.1)))
-                                    }
-                                    .buttonStyle(.plain)
+            content
 
-                                    // Category Manager Button
-                                    Button(action: { viewModel.showCategoryManager.toggle() }) {
-                                        Image(systemName: "folder.badge.gearshape")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.white.opacity(0.7))
-                                            .padding(10)
-                                            .background(Circle().fill(Color.white.opacity(0.1)))
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    Spacer()
-
-                                    // Search Bar (searches folder names when at home)
-                                    HStack {
-                                        Image(systemName: "magnifyingglass")
-                                            .foregroundColor(.white.opacity(0.7))
-                                        TextField(L("searchCategoryOrApps"), text: $viewModel.searchText)
-                                            .textFieldStyle(.plain)
-                                            .foregroundColor(.white)
-                                            .font(.system(size: 16))
-                                    }
-                                    .padding(12)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.white.opacity(0.12))
-                                    )
-                                    .frame(maxWidth: 350)
-
-                                    Spacer()
-
-                                    // Refresh Button
-                                    Button(action: { viewModel.refresh() }) {
-                                        Image(systemName: "arrow.clockwise")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.white.opacity(0.7))
-                                            .padding(10)
-                                            .background(Circle().fill(Color.white.opacity(0.1)))
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(.horizontal, 80)
-                                .padding(.top, 80)
-
-                                // Display folder cards or search results
-                                if viewModel.searchText.isEmpty {
-                                    // Folder Grid
-                                    FolderGridView(folders: viewModel.folderGroups) { folderId in
-                                        viewModel.navigateToFolder(id: folderId)
-                                    }
-                                } else {
-                                    // Search results - show apps matching search
-                                    ScrollView {
-                                        LazyVGrid(
-                                            columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing),
-                                                         count: calculateColumns(width: geometry.size.width - 160)),
-                                            spacing: settings.gridSpacing
-                                        ) {
-                                            ForEach(viewModel.filteredApps) { app in
-                                                AppIconView(app: app, size: settings.iconSize) {
-                                                    viewModel.launchApp(app)
-                                                }
-                                            }
-                                        }
-                                        .padding(.horizontal, 80)
-                                        .padding(.vertical, 30)
-                                    }
-                                }
-
-                                // Bottom hint
-                                Text("\(L("hintEscClose"))  |  \(L("hintHotkey")): \(settings.hotkeyDescription)  |  \(L("hintClickCategory"))")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.white.opacity(0.5))
-                                    .padding(.bottom, 80)
-                            }
-                            .transition(.opacity)
-                        }
-
-                        // Folder Detail view
-                        if case .folderDetail = viewModel.route, let folder = viewModel.activeFolder {
-                            FolderDetailOverlay(
-                                folder: folder,
-                                apps: viewModel.filteredFolderApps,
-                                searchQuery: $viewModel.folderQuery,
-                                onBack: { viewModel.navigateToHome() },
-                                onAppTap: { app in viewModel.launchApp(app) }
-                            )
-                        }
-                    }
-                } else {
-                    // Non-category mode - flat app list
-                    VStack(spacing: 16) {
-                        // Top Bar
-                        HStack {
-                            // Settings Button
-                            Button(action: { viewModel.showSettings.toggle() }) {
-                                Image(systemName: "gear")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .padding(10)
-                                    .background(Circle().fill(Color.white.opacity(0.1)))
-                            }
-                            .buttonStyle(.plain)
-
-                            // Category Manager Button
-                            Button(action: { viewModel.showCategoryManager.toggle() }) {
-                                Image(systemName: "folder.badge.gearshape")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .padding(10)
-                                    .background(Circle().fill(Color.white.opacity(0.1)))
-                            }
-                            .buttonStyle(.plain)
-
-                            Spacer()
-
-                            // Search Bar
-                            HStack {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundColor(.white.opacity(0.7))
-                                TextField(L("searchApps"), text: $viewModel.searchText)
-                                    .textFieldStyle(.plain)
-                                    .foregroundColor(.white)
-                                    .font(.system(size: 16))
-                            }
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color.white.opacity(0.12))
-                            )
-                            .frame(maxWidth: 350)
-
-                            Spacer()
-
-                            // Refresh Button
-                            Button(action: { viewModel.refresh() }) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .padding(10)
-                                    .background(Circle().fill(Color.white.opacity(0.1)))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, 80)
-                        .padding(.top, 80)
-
-                        // Flat view
-                        ScrollView {
-                            LazyVGrid(
-                                columns: Array(repeating: GridItem(.flexible(), spacing: settings.gridSpacing),
-                                             count: calculateColumns(width: geometry.size.width - 160)),
-                                spacing: settings.gridSpacing
-                            ) {
-                                ForEach(viewModel.filteredApps) { app in
-                                    AppIconView(app: app, size: settings.iconSize) {
-                                        viewModel.launchApp(app)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 80)
-                            .padding(.vertical, 30)
-                        }
-
-                        // Bottom hint
-                        Text("\(L("hintEscClose"))  |  \(L("hintHotkey")): \(settings.hotkeyDescription)  |  \(L("hintClickSettings"))")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.5))
-                            .padding(.bottom, 80)
-                    }
-                }
-
-                // Settings Panel
-                if viewModel.showSettings {
-                    Color.black.opacity(0.5)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            viewModel.showSettings = false
-                        }
-
-                    SettingsView(isPresented: $viewModel.showSettings)
-                }
-
-                // Category Manager Panel
-                if viewModel.showCategoryManager {
-                    Color.black.opacity(0.5)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            viewModel.showCategoryManager = false
-                        }
-
-                    CategoryManagerView(isPresented: $viewModel.showCategoryManager)
-                }
+            if viewModel.showSettings {
+                scrim { viewModel.showSettings = false }
+                SettingsView(isPresented: $viewModel.showSettings)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if viewModel.showCategoryManager {
+                scrim { viewModel.showCategoryManager = false }
+                CategoryManagerView(isPresented: $viewModel.showCategoryManager)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if settings.showCategories, case .folderDetail = viewModel.route, let folder = viewModel.activeFolder {
+            FolderDetailOverlay(
+                folder: folder,
+                apps: viewModel.filteredFolderApps,
+                searchQuery: $viewModel.folderQuery,
+                onBack: { viewModel.navigateToHome() }
+            )
+        } else {
+            VStack(spacing: Design.Space.m) {
+                topBar
+                mainArea
+                bottomHint
+            }
         }
     }
 
-    func calculateColumns(width: CGFloat) -> Int {
-        let itemWidth = settings.iconSize + 50
-        let padding: CGFloat = 60
-        let availableWidth = width - padding
-        return max(4, Int(availableWidth / itemWidth))
+    private var topBar: some View {
+        HStack(spacing: Design.Space.s) {
+            TopBarButton(icon: "gearshape", help: L("settings")) {
+                viewModel.showSettings.toggle()
+            }
+            TopBarButton(icon: "folder.badge.gearshape", help: L("categoryManager")) {
+                viewModel.showCategoryManager.toggle()
+            }
+
+            Spacer()
+
+            SearchField(
+                placeholder: settings.showCategories ? L("searchCategoryOrApps") : L("searchApps"),
+                text: $viewModel.searchText
+            )
+
+            Spacer()
+
+            TopBarButton(icon: "arrow.clockwise", help: L("refresh")) {
+                viewModel.refresh()
+            }
+        }
+        .padding(.horizontal, Design.Space.xxl)
+        .padding(.top, Design.Space.xl)
+    }
+
+    @ViewBuilder
+    private var mainArea: some View {
+        if viewModel.apps.isEmpty {
+            EmptyStateView(icon: "square.grid.2x2", title: L("noApps"), hint: L("noAppsHint"))
+        } else if !viewModel.searchText.isEmpty {
+            if viewModel.filteredApps.isEmpty {
+                EmptyStateView(icon: "magnifyingglass",
+                               title: L("noResults", viewModel.searchText),
+                               hint: L("noResultsHint"))
+            } else {
+                AppGridView(apps: viewModel.filteredApps, showsCategoryLabel: settings.showCategories)
+            }
+        } else if settings.showCategories {
+            FolderGridView(folders: viewModel.folderGroups) { folderId in
+                viewModel.navigateToFolder(id: folderId)
+            }
+        } else {
+            AppGridView(apps: viewModel.filteredApps)
+        }
+    }
+
+    // 操作提示只在前幾次開啟時出現，熟練之後不再佔版面
+    private var bottomHint: some View {
+        Group {
+            if settings.openCount <= 5 {
+                Text("\(L("hintKeyboard"))     \(L("hintHotkey")): \(settings.hotkeyDescription)")
+                    .font(Design.Typo.caption)
+                    .foregroundColor(Design.Palette.textTertiary)
+            }
+        }
+        .frame(height: Design.Space.m)
+        .padding(.bottom, Design.Space.xl)
+    }
+
+    private func scrim(_ action: @escaping () -> Void) -> some View {
+        Design.Palette.overlayScrim
+            .ignoresSafeArea()
+            .onTapGesture(perform: action)
     }
 }
 
@@ -2308,6 +2337,8 @@ class HotkeyRecorder: ObservableObject {
     @Published private(set) var errorMessage: String?
     private var monitor: Any?
 
+    private var timeout: DispatchWorkItem?
+
     func start() {
         guard monitor == nil else { return }
         errorMessage = nil
@@ -2316,6 +2347,14 @@ class HotkeyRecorder: ObservableObject {
             self?.capture(event)
             return nil
         }
+        // 媒體鍵等事件不是 keyDown，收不到時錄製會一直卡著，給它一個出口
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self, self.isRecording else { return }
+            self.cancel()
+            self.errorMessage = L("hotkeyRecordingTimeout")
+        }
+        timeout = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: work)
     }
 
     func cancel() {
@@ -2323,6 +2362,8 @@ class HotkeyRecorder: ObservableObject {
             NSEvent.removeMonitor(monitor)
         }
         monitor = nil
+        timeout?.cancel()
+        timeout = nil
         isRecording = false
     }
 
@@ -2437,11 +2478,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return noErr
         }, 1, &eventSpec, nil, nil)
 
-        // Register ESC key handler once
+        // 鍵盤操作：ESC 分層返回、方向鍵選取、Return 開啟
         escMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard event.keyCode == UInt16(kVK_Escape) else { return event }
             guard let self = self, let window = self.window, window.isVisible else { return event }
-            return self.handleEscape(in: window) ? nil : event
+
+            if event.keyCode == UInt16(kVK_Escape) {
+                return self.handleEscape(in: window) ? nil : event
+            }
+            return self.handleNavigation(event, in: window) ? nil : event
         }
 
         // Monitor app directories for changes
@@ -2476,14 +2520,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if !viewModel.searchText.isEmpty {
             viewModel.searchText = ""
         } else {
-            window.orderOut(nil)
+            hideLauncher()
         }
         return true
     }
 
+    /// 方向鍵移動選取、Return 開啟；面板或 sheet 開著時不攔截
+    private func handleNavigation(_ event: NSEvent, in window: NSWindow) -> Bool {
+        let viewModel = LauncherViewModel.shared
+        guard window.attachedSheet == nil,
+              !HotkeyRecorder.shared.isRecording,
+              !viewModel.showSettings,
+              !viewModel.showCategoryManager,
+              !event.modifierFlags.contains(.command) else { return false }
+
+        switch Int(event.keyCode) {
+        case kVK_LeftArrow: viewModel.moveSelection(dx: -1, dy: 0)
+        case kVK_RightArrow: viewModel.moveSelection(dx: 1, dy: 0)
+        case kVK_UpArrow: viewModel.moveSelection(dx: 0, dy: -1)
+        case kVK_DownArrow: viewModel.moveSelection(dx: 0, dy: 1)
+        case kVK_Return, kVK_ANSI_KeypadEnter: viewModel.activateSelection()
+        default: return false
+        }
+        return true
+    }
+
+    /// 關閉啟動器並把焦點交還給原本的 App
+    func hideLauncher() {
+        window?.orderOut(nil)
+        NSApp.hide(nil)
+    }
+
     @objc func toggleWindow() {
         if let window = window, window.isVisible {
-            window.orderOut(nil)
+            hideLauncher()
         } else {
             showWindow()
         }
@@ -2515,8 +2585,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window?.setFrame(screen.frame, display: true)
         }
 
+        // 淡入，避免視窗硬跳出來；系統開啟「減少動態效果」時直接顯示
+        window?.alphaValue = Design.reduceMotion ? 1 : 0
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(window?.contentView)
+        if !Design.reduceMotion, let window = window {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.12
+                window.animator().alphaValue = 1
+            }
+        }
 
         // Refresh app list to pick up newly installed apps
         LauncherViewModel.shared.refresh()
@@ -2528,6 +2606,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.searchText = ""
         viewModel.showSettings = false
         viewModel.showCategoryManager = false
+        viewModel.selection = 0
+        LauncherSettings.shared.openCount += 1
 
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
