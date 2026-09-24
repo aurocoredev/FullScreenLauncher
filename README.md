@@ -59,11 +59,41 @@ A full-screen app launcher for macOS with folder-style categorization, just like
 1. **[點此下載 FullScreenLauncher.app.zip](https://github.com/aurocoredev/FullScreenLauncher/releases/download/v1.3.0/FullScreenLauncher.app.zip)**
 2. 解壓縮 zip 檔案
 3. 將 `FullScreenLauncher.app` 拖曳到「應用程式」資料夾
-4. 首次開啟時，右鍵點擊 → 選擇「打開」（因為沒有 Apple 開發者簽名）
 
 > 或前往 [Releases 頁面](https://github.com/aurocoredev/FullScreenLauncher/releases) 查看所有版本
 
-### 方法二：從原始碼編譯
+#### 首次開啟會被系統擋下
+
+這個 App 尚未經過 Apple 公證，第一次開啟時 macOS 會顯示「Apple 無法驗證是否含有惡意軟體」並拒絕開啟。**最快的解法是一行指令**，適用所有 macOS 版本：
+
+```bash
+xattr -cr /Applications/FullScreenLauncher.app
+```
+
+這會移除下載時被加上的隔離屬性，執行後就能正常雙擊開啟。
+
+<details>
+<summary>不想用指令？依系統版本手動處理</summary>
+
+**macOS 15 (Sequoia) 以上**
+
+Apple 從 macOS 15 起移除了「右鍵打開」這個繞過方式，改成必須到系統設定確認：
+
+1. 雙擊 App，出現警告視窗後按「完成」
+2. 開啟「系統設定」→「隱私權與安全性」
+3. 往下捲到「安全性」區塊，會看到「已阻擋使用 "FullScreenLauncher"」
+4. 按「強制打開」（Open Anyway），可能需要指紋或密碼驗證
+5. 再次雙擊 App，於對話框按「打開」
+
+**macOS 12 ~ 14**
+
+在 Finder 中右鍵點擊 App → 選「打開」→ 於對話框再按一次「打開」。
+
+</details>
+
+### 方法二：從原始碼編譯（不會被擋）
+
+自己編譯的 App 不會有隔離屬性，完全不會遇到上面的問題。
 
 ```bash
 # 複製專案
@@ -166,11 +196,41 @@ swiftc -o FullScreenLauncher main.swift -framework Cocoa -framework SwiftUI -fra
 1. **[Click here to download FullScreenLauncher.app.zip](https://github.com/aurocoredev/FullScreenLauncher/releases/download/v1.3.0/FullScreenLauncher.app.zip)**
 2. Unzip the file
 3. Drag `FullScreenLauncher.app` to your Applications folder
-4. On first launch, right-click → select "Open" (required for unsigned apps)
 
 > Or visit the [Releases page](https://github.com/aurocoredev/FullScreenLauncher/releases) for all versions
 
-### Option 2: Build from Source
+#### macOS blocks the first launch
+
+This app isn't notarized by Apple yet, so the first launch is refused with "Apple could not verify this app is free of malware". **The quickest fix is one command**, and it works on every macOS version:
+
+```bash
+xattr -cr /Applications/FullScreenLauncher.app
+```
+
+That removes the quarantine flag added during download. Double-click works normally afterwards.
+
+<details>
+<summary>Prefer not to use the terminal? Steps per macOS version</summary>
+
+**macOS 15 (Sequoia) and later**
+
+Apple removed the right-click → Open shortcut in macOS 15. You now have to confirm in System Settings:
+
+1. Double-click the app, then dismiss the warning with "Done"
+2. Open System Settings → Privacy & Security
+3. Scroll down to the Security section, where you'll see that FullScreenLauncher was blocked
+4. Click **Open Anyway** and authenticate with Touch ID or your password
+5. Double-click the app again and choose "Open" in the dialog
+
+**macOS 12 to 14**
+
+Right-click the app in Finder → choose "Open" → click "Open" again in the dialog.
+
+</details>
+
+### Option 2: Build from Source (no blocking)
+
+An app you compile yourself never gets the quarantine flag, so none of the above applies.
 
 ```bash
 # Clone the project
