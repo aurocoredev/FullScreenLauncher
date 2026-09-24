@@ -40,6 +40,19 @@ if [ -f "AppIcon.icns" ]; then
     echo "✅ 已加入自訂圖標"
 fi
 
+# 簽章（可選）：設定 SIGN_IDENTITY 才會執行，公證流程見 docs/release-signing.md
+# 例：export SIGN_IDENTITY="Developer ID Application: 你的名字 (TMW5T9TWGW)"
+if [ -n "$SIGN_IDENTITY" ]; then
+    echo "🔏 簽章中: $SIGN_IDENTITY"
+    # --options runtime 與 --timestamp 都是公證的必要條件
+    codesign --force --timestamp --options runtime \
+        --sign "$SIGN_IDENTITY" FullScreenLauncher.app
+    codesign --verify --strict --verbose=2 FullScreenLauncher.app
+    echo "✅ 已簽章"
+else
+    echo "ℹ️  未簽章（設定 SIGN_IDENTITY 可啟用，見 docs/release-signing.md）"
+fi
+
 echo "✅ 編譯完成！"
 echo ""
 echo "📍 應用程式位置: $(pwd)/FullScreenLauncher.app"
